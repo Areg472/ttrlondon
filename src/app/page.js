@@ -12,9 +12,9 @@ export default function Home() {
           <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">Train Tile</p>
           <div className="flex items-center justify-center p-2">
             <TrainTileCont trainCount={3}>
-              <TrainTile color="#cccccc" trainColor="yellow" />
-              <TrainTile color="#cccccc" trainColor="yellow" />
-              <TrainTile color="#cccccc" trainColor="yellow" />
+              <TrainTile color="red" trainColor="yellow" angle={40}/>
+              <TrainTile color="red" trainColor="yellow" angle={320}/>
+              <TrainTile color="red" trainColor="yellow" angle={0}/>
             </TrainTileCont>
           </div>
           <p className="text-xs text-gray-400">Click to toggle train</p>
