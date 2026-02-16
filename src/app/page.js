@@ -1,37 +1,124 @@
 "use client"
 
-import Image from "next/image";
-import {TrainCards} from "./Components/Cards";
 import {TrainTile, TrainTileCont} from "./Components/TrainTile";
+import {City} from "./Components/City";
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black p-8">
-      <main className="flex min-h-screen w-full max-w-4xl flex-col items-center justify-center py-12 px-16 bg-white dark:bg-black gap-12 shadow-xl rounded-2xl">
-        <div className="flex flex-col items-center gap-6 p-6 border-2 border-dashed border-gray-100 rounded-xl">
-          <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">Train Tile</p>
-          <div className="flex items-center justify-center p-2">
-            <TrainTileCont trainCount={3}>
-              <TrainTile color="red" trainColor="yellow" angle={40}/>
-              <TrainTile color="red" trainColor="yellow" angle={320}/>
+    <div className="flex min-h-screen flex-col items-center bg-zinc-100 font-sans dark:bg-zinc-900 p-8">
+      <header className="mb-8 text-center">
+        <h1 className="text-4xl font-bold text-zinc-800 dark:text-zinc-100 mb-2">
+          Ticket to Ride London
+        </h1>
+      </header>
+
+      <main className="relative w-full max-w-6xl aspect-[16/10] bg-white dark:bg-black shadow-2xl rounded-3xl overflow-hidden border border-zinc-200 dark:border-zinc-800">
+        <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none" 
+             style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
+        </div>
+
+        {/* Train Connections */}
+        <TrainTileCont trainCount={2} x={80} y={150}>
+          <TrainTile color="blue" trainColor="yellow" angle={330}/>
+          <TrainTile color="blue" trainColor="yellow" angle={0}/>
+        </TrainTileCont>
+          <TrainTileCont trainCount={4} x={114} y={170}>
+              <TrainTile color="orange" trainColor="yellow" angle={5}/>
+              <TrainTile color="orange" trainColor="yellow" angle={0}/>
+              <TrainTile color="orange" trainColor="yellow" angle={0}/>
+              <TrainTile color="orange" trainColor="yellow" angle={0}/>
+          </TrainTileCont>
+        <TrainTileCont trainCount={3} x={280} y={50}>
+          <TrainTile color="green" trainColor="yellow" angle={0}/>
+          <TrainTile color="green" trainColor="yellow" angle={0}/>
+          <TrainTile color="green" trainColor="yellow" angle={0}/>
+        </TrainTileCont>
+          <TrainTileCont trainCount={3} x={260} y={70}>
+              <TrainTile color="yellow" trainColor="red" angle={14}/>
+              <TrainTile color="yellow" trainColor="red" angle={10}/>
+              <TrainTile color="yellow" trainColor="red" angle={10}/>
+          </TrainTileCont>
+        <TrainTileCont trainCount={4} x={65} y={190}>
+          <TrainTile color="black" trainColor="yellow" angle={90}/>
+          <TrainTile color="black" trainColor="yellow" angle={0}/>
+          <TrainTile color="black" trainColor="yellow" angle={355}/>
+          <TrainTile color="black" trainColor="yellow" angle={355}/>
+        </TrainTileCont>
+          <TrainTileCont trainCount={4} x={90} y={190}>
+              <TrainTile color="gray" trainColor="yellow" angle={50}/>
+              <TrainTile color="gray" trainColor="yellow" angle={0}/>
+              <TrainTile color="gray" trainColor="yellow" angle={355}/>
+              <TrainTile color="gray" trainColor="yellow" angle={355}/>
+          </TrainTileCont>
+          <TrainTileCont trainCount={4} x={120} y={470} isDouble={true}>
+              <TrainTile color="gray" trainColor="yellow" angle={345}/>
+              <TrainTile color="gray" trainColor="yellow" angle={0}/>
+              <TrainTile color="gray" trainColor="yellow" angle={0}/>
+              <TrainTile color="gray" trainColor="yellow" angle={0}/>
+          </TrainTileCont>
+        <TrainTileCont trainCount={2} x={120} y={527} isDouble={true}>
+          <TrainTile color="yellow" trainColor="red" angle={15}/>
+          <TrainTile color="orange" trainColor="red" angle={0}/>
+        </TrainTileCont>
+          <TrainTileCont trainCount={2} x={345} y={390}>
+              <TrainTile color="gray" trainColor="red" angle={290}/>
+              <TrainTile color="gray" trainColor="red" angle={20}/>
+          </TrainTileCont>
+          <TrainTileCont trainCount={2} x={390} y={360} isDouble={true}>
+              <TrainTile color="green" trainColor="red" angle={355}/>
+              <TrainTile color="yellow" trainColor="red" angle={0}/>
+          </TrainTileCont>
+          <TrainTileCont trainCount={2} x={240} y={560}>
+              <TrainTile color="red" trainColor="yellow" angle={310}/>
               <TrainTile color="red" trainColor="yellow" angle={0}/>
-            </TrainTileCont>
-          </div>
-          <p className="text-xs text-gray-400">Click to toggle train</p>
-        </div>
+          </TrainTileCont>
+          <TrainTileCont trainCount={2} x={250} y={580}>
+              <TrainTile color="green" trainColor="yellow" angle={7}/>
+              <TrainTile color="green" trainColor="yellow" angle={355}/>
+          </TrainTileCont>
+          <TrainTileCont trainCount={2} x={260} y={570}>
+              <TrainTile color="gray" trainColor="yellow" angle={325}/>
+              <TrainTile color="gray" trainColor="yellow" angle={0}/>
+          </TrainTileCont>
+          <TrainTileCont trainCount={2} x={500} y={320} isDouble={true}>
+              <TrainTile color="gray" trainColor="yellow" angle={245}/>
+              <TrainTile color="gray" trainColor="yellow" angle={0}/>
+          </TrainTileCont>
+          <TrainTileCont trainCount={1} x={415} y={490}>
+              <TrainTile color="gray" trainColor="yellow" angle={80}/>
+          </TrainTileCont>
+          <TrainTileCont trainCount={4} x={360} y={400} isDouble={true}>
+              <TrainTile color="blue" trainColor="yellow" angle={40}/>
+              <TrainTile color="orange" trainColor="yellow" angle={0}/>
+          </TrainTileCont>
+          <TrainTileCont trainCount={4} x={420} y={450} isDouble={true}>
+              <TrainTile color="black" trainColor="yellow" angle={320}/>
+              <TrainTile color="red" trainColor="yellow" angle={0}/>
+          </TrainTileCont>
+          <TrainTileCont trainCount={4} x={490} y={200}>
+              <TrainTile color="black" trainColor="yellow" angle={290}/>
+              <TrainTile color="black" trainColor="yellow" angle={0}/>
+          </TrainTileCont>
+          <TrainTileCont trainCount={6} x={550} y={350} isDouble={true}>
+              <TrainTile color="gray" trainColor="yellow" angle={353}/>
+              <TrainTile color="gray" trainColor="yellow" angle={0}/>
+              <TrainTile color="gray" trainColor="yellow" angle={0}/>
+              <TrainTile color="gray" trainColor="yellow" angle={0}/>
+              <TrainTile color="gray" trainColor="yellow" angle={0}/>
+              <TrainTile color="gray" trainColor="yellow" angle={0}/>
+          </TrainTileCont>
 
-        <div className="flex flex-col items-center gap-6 p-6 border-2 border-dashed border-gray-100 rounded-xl">
-          <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">Train Card</p>
-          <div className="flex-shrink-0">
-            <TrainCards color="yellow"/>
-          </div>
-        </div>
-
-        <div className="flex flex-col items-center gap-6 text-center">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            Component Preview
-          </h1>
-        </div>
+        {/* Cities */}
+        <City name="Regent's Park" number={5} x={230} y={50} labelPosition="top-left" />
+        <City name="Baker Street" number={5} x={50} y={170} labelPosition="top-right" />
+        <City name="Hyde Park" number={5} x={78} y={527} labelPosition="bottom-left" />
+        <City name="Buckingham Palace" number={2} x={203} y={570} labelPosition="bottom" />
+        <City name="King's Cross" number={5} x={527} y={47} labelPosition="top" />
+          <City name="British Museum" number={1} x={450} y={200} labelPosition="bottom-left" />
+          <City name="Piccadilly Circus" number={2} x={326} y={410} labelPosition="top-left" />
+          <City name="Big Ben" number={2} x={413} y={590} labelPosition="bottom" />
+          <City name="Trafaglar Square" number={2} x={400} y={470} labelPosition="top-right" />
+          <City name="Covent Garden" number={1} x={500} y={367} labelPosition="bottom-right" />
       </main>
     </div>
   );
