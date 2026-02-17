@@ -41,7 +41,7 @@ export default function Home() {
           </TrainTileCont>
           <TrainTileCont trainCount={3} x={880} y={155}>
               <TrainTile color="green" trainColor="yellow" angle={355}/>
-              <TrainTile color="green" trainColor="yellow" angle={0}/>
+              <TrainTile color="green" trainColor="yellow" angle={5}/>
               <TrainTile color="green" trainColor="yellow" angle={5}/>
           </TrainTileCont>
           <TrainTileCont trainCount={3} x={260} y={70}>
