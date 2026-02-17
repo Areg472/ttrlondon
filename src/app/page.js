@@ -12,10 +12,11 @@ export default function Home() {
         </h1>
       </header>
 
-      <main className="relative w-full max-w-6xl aspect-[16/10] bg-white dark:bg-black shadow-2xl rounded-3xl overflow-hidden border border-zinc-200 dark:border-zinc-800">
-        <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none" 
-             style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
-        </div>
+      <main className="w-full max-w-full overflow-auto flex justify-center p-4">
+        <div className="relative min-w-[1200px] aspect-[18/10] bg-white dark:bg-black shadow-2xl rounded-3xl overflow-hidden border border-zinc-200 dark:border-zinc-800">
+          <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none" 
+               style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
+          </div>
 
         {/* Train Connections */}
         <TrainTileCont trainCount={2} x={80} y={150}>
@@ -33,6 +34,16 @@ export default function Home() {
           <TrainTile color="green" trainColor="yellow" angle={0}/>
           <TrainTile color="green" trainColor="yellow" angle={0}/>
         </TrainTileCont>
+          <TrainTileCont trainCount={3} x={580} y={50}>
+              <TrainTile color="red" trainColor="yellow" angle={0}/>
+              <TrainTile color="red" trainColor="yellow" angle={12}/>
+              <TrainTile color="red" trainColor="yellow" angle={12}/>
+          </TrainTileCont>
+          <TrainTileCont trainCount={3} x={880} y={155}>
+              <TrainTile color="green" trainColor="yellow" angle={355}/>
+              <TrainTile color="green" trainColor="yellow" angle={0}/>
+              <TrainTile color="green" trainColor="yellow" angle={5}/>
+          </TrainTileCont>
           <TrainTileCont trainCount={3} x={260} y={70}>
               <TrainTile color="yellow" trainColor="red" angle={14}/>
               <TrainTile color="yellow" trainColor="red" angle={10}/>
@@ -84,6 +95,26 @@ export default function Home() {
               <TrainTile color="gray" trainColor="yellow" angle={245}/>
               <TrainTile color="gray" trainColor="yellow" angle={0}/>
           </TrainTileCont>
+          <TrainTileCont trainCount={2} x={440} y={500} >
+              <TrainTile color="gray" trainColor="yellow" angle={5}/>
+              <TrainTile color="gray" trainColor="yellow" angle={0}/>
+          </TrainTileCont>
+          <TrainTileCont trainCount={2} x={640} y={525} >
+              <TrainTile color="orange" trainColor="yellow" angle={40}/>
+              <TrainTile color="orange" trainColor="yellow" angle={0}/>
+          </TrainTileCont>
+          <TrainTileCont trainCount={2} x={800} y={620} >
+              <TrainTile color="green" trainColor="yellow" angle={278}/>
+              <TrainTile color="green" trainColor="yellow" angle={0}/>
+          </TrainTileCont>
+          <TrainTileCont trainCount={3} x={455} y={610} >
+              <TrainTile color="yellow" trainColor="red" angle={5}/>
+              <TrainTile color="yellow" trainColor="red" angle={0}/>
+              <TrainTile color="yellow" trainColor="red" angle={0}/>
+          </TrainTileCont>
+          <TrainTileCont trainCount={2} x={465} y={580} >
+              <TrainTile color="blue" trainColor="yellow" angle={345}/>
+          </TrainTileCont>
           <TrainTileCont trainCount={1} x={415} y={490}>
               <TrainTile color="gray" trainColor="yellow" angle={80}/>
           </TrainTileCont>
@@ -99,6 +130,10 @@ export default function Home() {
               <TrainTile color="black" trainColor="yellow" angle={290}/>
               <TrainTile color="black" trainColor="yellow" angle={0}/>
           </TrainTileCont>
+          <TrainTileCont trainCount={4} x={650} y={500}>
+              <TrainTile color="red" trainColor="yellow" angle={330}/>
+              <TrainTile color="red" trainColor="yellow" angle={30}/>
+          </TrainTileCont>
           <TrainTileCont trainCount={6} x={550} y={350} isDouble={true}>
               <TrainTile color="gray" trainColor="yellow" angle={353}/>
               <TrainTile color="gray" trainColor="yellow" angle={0}/>
@@ -106,6 +141,19 @@ export default function Home() {
               <TrainTile color="gray" trainColor="yellow" angle={0}/>
               <TrainTile color="gray" trainColor="yellow" angle={0}/>
               <TrainTile color="gray" trainColor="yellow" angle={0}/>
+          </TrainTileCont>
+          <TrainTileCont trainCount={4} x={520} y={200}>
+              <TrainTile color="blue" trainColor="yellow" angle={0}/>
+              <TrainTile color="blue" trainColor="yellow" angle={357}/>
+              <TrainTile color="blue" trainColor="yellow" angle={354}/>
+              <TrainTile color="blue" trainColor="yellow" angle={351}/>
+          </TrainTileCont>
+          <TrainTileCont trainCount={2} x={810} y={430} isDouble={true}>
+              <TrainTile color="gray" trainColor="yellow" angle={270}/>
+              <TrainTile color="gray" trainColor="yellow" angle={0}/>
+          </TrainTileCont>
+          <TrainTileCont trainCount={1} x={830} y={275} isDouble={true}>
+              <TrainTile color="black" trainColor="yellow" angle={285}/>
           </TrainTileCont>
 
         {/* Cities */}
@@ -115,10 +163,16 @@ export default function Home() {
         <City name="Buckingham Palace" number={2} x={203} y={570} labelPosition="bottom" />
         <City name="King's Cross" number={5} x={527} y={47} labelPosition="top" />
           <City name="British Museum" number={1} x={450} y={200} labelPosition="bottom-left" />
-          <City name="Piccadilly Circus" number={2} x={326} y={410} labelPosition="top-left" />
+          <City name="Piccadilly Circus" number={2} x={326} y={410} labelPosition="left" />
           <City name="Big Ben" number={2} x={413} y={590} labelPosition="bottom" />
+          <City name="Elephant & Castle" number={3} x={780} y={630} labelPosition="bottom" />
           <City name="Trafaglar Square" number={2} x={400} y={470} labelPosition="top-right" />
+          <City name="Waterloo" number={3} x={605} y={515} labelPosition="right" />
+          <City name="Globe Theatre" number={3} x={805} y={445} labelPosition="top-right" />
+          <City name="St Paul's" number={4} x={805} y={326} labelPosition="top-right" />
+          <City name="The Charterhouse" number={4} x={840} y={155} labelPosition="left" />
           <City name="Covent Garden" number={1} x={500} y={367} labelPosition="bottom-right" />
+        </div>
       </main>
     </div>
   );

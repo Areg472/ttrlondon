@@ -17,6 +17,10 @@ export function City({ name, number, x, y, labelPosition = "top" }) {
         return "top-full right-full mr-1 mt-1";
       case "top-left":
         return "bottom-full right-full mr-1 mb-1";
+      case "right":
+        return "left-full top-1/2 -translate-y-1/2 ml-2";
+      case "left":
+        return "right-full top-1/2 -translate-y-1/2 mr-2";
       default:
         return "bottom-full left-1/2 -translate-x-1/2 mb-2";
     }
