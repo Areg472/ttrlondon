@@ -44,6 +44,35 @@ export default function Home() {
               <TrainTile color="green" trainColor="yellow" angle={5}/>
               <TrainTile color="green" trainColor="yellow" angle={5}/>
           </TrainTileCont>
+            <TrainTileCont trainCount={3} x={880} y={300}>
+                <TrainTile color="orange" trainColor="yellow" angle={334}/>
+                <TrainTile color="orange" trainColor="yellow" angle={0}/>
+                <TrainTile color="orange" trainColor="yellow" angle={0}/>
+            </TrainTileCont>
+            <TrainTileCont trainCount={3} x={860} y={445}>
+                <TrainTile color="gray" trainColor="yellow" angle={30}/>
+                <TrainTile color="gray" trainColor="yellow" angle={-30}/>
+                <TrainTile color="gray" trainColor="yellow" angle={-18}/>
+            </TrainTileCont>
+            <TrainTileCont trainCount={4} x={840} y={625}>
+                <TrainTile color="black" trainColor="yellow" angle={-8}/>
+                <TrainTile color="black" trainColor="yellow" angle={-13}/>
+                <TrainTile color="black" trainColor="yellow" angle={-13}/>
+                <TrainTile color="black" trainColor="yellow" angle={-13}/>
+            </TrainTileCont>
+            <TrainTileCont trainCount={3} x={880} y={320} isDouble={true}>
+                <TrainTile color="yellow" trainColor="blue" angle={20}/>
+                <TrainTile color="red" trainColor="blue" angle={0}/>
+                <TrainTile color="yellow" trainColor="blue" angle={0}/>
+                <TrainTile color="red" trainColor="blue" angle={0}/>
+                <TrainTile color="yellow" trainColor="blue" angle={0}/>
+                <TrainTile color="red" trainColor="blue" angle={0}/>
+            </TrainTileCont>
+            <TrainTileCont trainCount={3} x={1145} y={180}>
+                <TrainTile color="blue" trainColor="yellow" angle={90}/>
+                <TrainTile color="blue" trainColor="yellow" angle={0}/>
+                <TrainTile color="blue" trainColor="yellow" angle={0}/>
+            </TrainTileCont>
           <TrainTileCont trainCount={3} x={260} y={70}>
               <TrainTile color="yellow" trainColor="red" angle={14}/>
               <TrainTile color="yellow" trainColor="red" angle={10}/>
@@ -171,6 +200,8 @@ export default function Home() {
           <City name="Globe Theatre" number={3} x={805} y={445} labelPosition="top-right" />
           <City name="St Paul's" number={4} x={805} y={326} labelPosition="top-right" />
           <City name="The Charterhouse" number={4} x={840} y={155} labelPosition="left" />
+            <City name="Brick Lane" number={4} x={1130} y={155} labelPosition="top" />
+            <City name="Tower of London" number={4} x={1130} y={440} labelPosition="top-left" />
           <City name="Covent Garden" number={1} x={500} y={367} labelPosition="bottom-right" />
         </div>
       </main>
