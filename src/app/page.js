@@ -2,6 +2,53 @@
 
 import {TrainTile, TrainTileCont} from "./Components/TrainTile";
 import {City} from "./Components/City";
+import TicketCard from "./Components/TicketCard";
+
+const CITIES = [
+  { name: "Regent's Park", number: 5, x: 230, y: 50, labelPosition: "top-left" },
+  { name: "Baker Street", number: 5, x: 50, y: 170, labelPosition: "top-right" },
+  { name: "Hyde Park", number: 5, x: 78, y: 527, labelPosition: "bottom" },
+  { name: "Buckingham Palace", number: 2, x: 203, y: 570, labelPosition: "bottom" },
+  { name: "King's Cross", number: 5, x: 527, y: 47, labelPosition: "top" },
+  { name: "British Museum", number: 1, x: 450, y: 200, labelPosition: "bottom-left" },
+  { name: "Piccadilly Circus", number: 2, x: 326, y: 410, labelPosition: "left" },
+  { name: "Big Ben", number: 2, x: 413, y: 590, labelPosition: "bottom" },
+  { name: "Elephant & Castle", number: 3, x: 780, y: 630, labelPosition: "bottom" },
+  { name: "Trafalgar Square", number: 2, x: 400, y: 470, labelPosition: "top-right" },
+  { name: "Waterloo", number: 3, x: 605, y: 515, labelPosition: "right" },
+  { name: "Globe Theatre", number: 3, x: 805, y: 445, labelPosition: "top-right" },
+  { name: "St Paul's", number: 4, x: 805, y: 326, labelPosition: "top-right" },
+  { name: "The Charterhouse", number: 4, x: 840, y: 155, labelPosition: "left" },
+  { name: "Brick Lane", number: 4, x: 1130, y: 155, labelPosition: "top" },
+  { name: "Tower of London", number: 4, x: 1130, y: 440, labelPosition: "top-left" },
+  { name: "Covent Garden", number: 1, x: 500, y: 367, labelPosition: "bottom-right" },
+];
+
+export { CITIES };
+
+const TICKETS = [
+  { cityA: "British Museum", cityB: "Piccadilly Circus", points: 2},
+  { cityA: "Baker Street", cityB: "Trafalgar Square", points: 5 },
+  { cityA: "Buckingham Palace", cityB: "Brick Lane", points: 9 },
+  { cityA: "Hyde Park", cityB: "Covent Garden", points: 3 },
+    { cityA: "Globe Theatre", cityB: "Brick Lane", points: 4 },
+    { cityA: "Regent's Park", cityB: "Elephant & Castle", points: 9 },
+    { cityA: "King's Cross", cityB: "Buckingham Palace", points: 6 },
+    { cityA: "Baker Street", cityB: "Tower of London", points: 11 },
+    { cityA: "Trafalgar Square", cityB: "St Paul's", points: 4 },
+    { cityA: "King's Cross", cityB: "Tower of London", points: 7 },
+    { cityA: "Buckingham Palace", cityB: "Elephant & Castle", points: 5 },
+    { cityA: "Covent Garden", cityB: "Tower of London", points: 6 },
+    { cityA: "Trafalgar Square", cityB: "Globe Theatre", points: 4 },
+    { cityA: "British Museum", cityB: "Waterloo", points: 4 },
+    { cityA: "Piccadilly Circus", cityB: "Waterloo", points: 3 },
+    { cityA: "Hyde Park", cityB: "St Paul's", points: 6 },
+    { cityA: "Regent's Park", cityB: "Piccadilly Circus", points: 5 },
+    { cityA: "Big Ben", cityB: "The Charterhouse", points: 5 },
+    { cityA: "Big Ben", cityB: "Tower of London", points: 6 },
+    { cityA: "British Museum", cityB: "St Paul's", points: 4 },
+];
+export { TICKETS };
 
 export default function Home() {
   return (
@@ -12,11 +59,13 @@ export default function Home() {
         </h1>
       </header>
 
-      <main className="w-full max-w-full overflow-auto flex justify-center p-4">
-        <div className="relative min-w-[1200px] aspect-[18/10] bg-white dark:bg-black shadow-2xl rounded-3xl overflow-hidden border border-zinc-200 dark:border-zinc-800">
-          <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none" 
-               style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
-          </div>
+      <main className="w-full flex justify-center gap-8 p-4">
+        <div className="flex flex-col items-center">
+          <div className="relative w-[800px] h-[600px] overflow-auto shadow-2xl rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-zinc-200 dark:bg-zinc-800">
+            <div className="relative min-w-[1200px] aspect-[18/10] bg-white dark:bg-black overflow-hidden">
+              <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none" 
+                   style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
+              </div>
 
         {/* Train Connections */}
         <TrainTileCont trainCount={2} x={80} y={150}>
@@ -186,23 +235,37 @@ export default function Home() {
           </TrainTileCont>
 
         {/* Cities */}
-        <City name="Regent's Park" number={5} x={230} y={50} labelPosition="top-left" />
-        <City name="Baker Street" number={5} x={50} y={170} labelPosition="top-right" />
-        <City name="Hyde Park" number={5} x={78} y={527} labelPosition="bottom-left" />
-        <City name="Buckingham Palace" number={2} x={203} y={570} labelPosition="bottom" />
-        <City name="King's Cross" number={5} x={527} y={47} labelPosition="top" />
-          <City name="British Museum" number={1} x={450} y={200} labelPosition="bottom-left" />
-          <City name="Piccadilly Circus" number={2} x={326} y={410} labelPosition="left" />
-          <City name="Big Ben" number={2} x={413} y={590} labelPosition="bottom" />
-          <City name="Elephant & Castle" number={3} x={780} y={630} labelPosition="bottom" />
-          <City name="Trafaglar Square" number={2} x={400} y={470} labelPosition="top-right" />
-          <City name="Waterloo" number={3} x={605} y={515} labelPosition="right" />
-          <City name="Globe Theatre" number={3} x={805} y={445} labelPosition="top-right" />
-          <City name="St Paul's" number={4} x={805} y={326} labelPosition="top-right" />
-          <City name="The Charterhouse" number={4} x={840} y={155} labelPosition="left" />
-            <City name="Brick Lane" number={4} x={1130} y={155} labelPosition="top" />
-            <City name="Tower of London" number={4} x={1130} y={440} labelPosition="top-left" />
-          <City name="Covent Garden" number={1} x={500} y={367} labelPosition="bottom-right" />
+        {CITIES.map((city) => (
+          <City key={city.name} {...city} />
+        ))}
+            </div>
+          </div>
+          <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400 italic">Scroll to explore the map</p>
+        </div>
+
+        {/* Ticket Stack */}
+        <div className="relative w-[210px] h-[120px] mt-10">
+          {TICKETS.map((t, i) => (
+            <div 
+              key={i} 
+              className="absolute transition-transform hover:-translate-y-1"
+              style={{ 
+                top: -i * 2, 
+                left: i * 0.5,
+                zIndex: i
+              }}
+            >
+              <TicketCard
+                cityA={t.cityA}
+                cityB={t.cityB}
+                points={t.points}
+                opposite={true}
+              />
+            </div>
+          ))}
+          <div className="absolute -bottom-8 left-0 right-0 text-center text-xs font-bold uppercase tracking-wider text-zinc-500">
+            Ticket Deck ({TICKETS.length})
+          </div>
         </div>
       </main>
     </div>
