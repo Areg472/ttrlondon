@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import React from "react";
 
@@ -41,10 +41,11 @@ export function City({ name, number, x, y, labelPosition = "top" }) {
         {number}
       </span>
       {name && (
-        <div 
+        <div
           className={`absolute whitespace-nowrap text-xs font-semibold text-zinc-700 dark:text-zinc-300 pointer-events-none ${getLabelStyle(labelPosition)}`}
           style={{
-            textShadow: '1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0px 1px 0 #000, 0px -1px 0 #000, 1px 0px 0 #000, -1px 0px 0 #000'
+            textShadow:
+              "1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0px 1px 0 #000, 0px -1px 0 #000, 1px 0px 0 #000, -1px 0px 0 #000",
           }}
         >
           {name}

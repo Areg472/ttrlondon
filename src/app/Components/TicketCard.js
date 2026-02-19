@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import React from 'react'
-import { CITIES } from '../page'
+import React from "react";
+import { CITIES } from "../page";
 
 // Ticket-to-Ride style destination ticket
 // Props:
@@ -31,16 +31,16 @@ export function TicketCard({
 
   // Helper to find city coordinates and data from board
   const getCityData = (name, manualPos) => {
-    const city = CITIES.find(c => c.name === name);
+    const city = CITIES.find((c) => c.name === name);
     const pos = manualPos || (city ? { x: city.x, y: city.y } : { x: 0, y: 0 });
-    
+
     // Scale board coordinates to card coordinates
     return {
       pos: {
         x: (pos.x / BOARD_WIDTH) * width,
-        y: (pos.y / BOARD_HEIGHT) * height
+        y: (pos.y / BOARD_HEIGHT) * height,
       },
-      number: city?.number
+      number: city?.number,
     };
   };
 
@@ -69,7 +69,10 @@ export function TicketCard({
       {/* subtle paper texture dots */}
       <div
         className="absolute inset-0 opacity-[0.06] dark:opacity-[0.08] pointer-events-none"
-        style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '10px 10px' }}
+        style={{
+          backgroundImage: "radial-gradient(#000 1px, transparent 1px)",
+          backgroundSize: "10px 10px",
+        }}
       />
 
       {opposite ? (
@@ -88,44 +91,62 @@ export function TicketCard({
           {/* Drawing layer */}
           <svg width={width} height={height} className="absolute inset-0">
             {/* connection line */}
-            <line x1={ax} y1={ay} x2={bx} y2={by} stroke="#374151" strokeOpacity="0.9" strokeWidth="2" />
+            <line
+              x1={ax}
+              y1={ay}
+              x2={bx}
+              y2={by}
+              stroke="#374151"
+              strokeOpacity="0.9"
+              strokeWidth="2"
+            />
             {/* end dots */}
-            <circle cx={ax} cy={ay} r="3" fill="#ef4444" stroke="#1f2937" strokeWidth="1" />
-            <circle cx={bx} cy={by} r="3" fill="#3b82f6" stroke="#1f2937" strokeWidth="1" />
+            <circle
+              cx={ax}
+              cy={ay}
+              r="3"
+              fill="#ef4444"
+              stroke="#1f2937"
+              strokeWidth="1"
+            />
+            <circle
+              cx={bx}
+              cy={by}
+              r="3"
+              fill="#3b82f6"
+              stroke="#1f2937"
+              strokeWidth="1"
+            />
           </svg>
 
           {/* City labels */}
           <div
             className="absolute text-[12px] font-semibold flex flex-col"
-            style={{ 
-              left: ax < width / 2 ? ax + 6 : 'auto', 
-              right: ax < width / 2 ? 'auto' : (width - ax) + 6,
-              top: ay - 2, 
-              color: '#ef4444', 
-              textShadow: '0 1px 0 rgba(255,255,255,0.6)',
-              textAlign: ax < width / 2 ? 'left' : 'right'
+            style={{
+              top: 85,
+              left: 5,
+              color: "#ef4444",
+              textShadow: "0 1px 0 rgba(255,255,255,0.6)",
             }}
           >
             <span>{cityA}</span>
           </div>
           <div
             className="absolute text-[12px] font-semibold flex flex-col"
-            style={{ 
-              left: bx < width / 2 ? bx + 6 : 'auto', 
-              right: bx < width / 2 ? 'auto' : (width - bx) + 6,
-              top: by - 2, 
-              color: '#3b82f6', 
-              textShadow: '0 1px 0 rgba(255,255,255,0.6)',
-              textAlign: bx < width / 2 ? 'left' : 'right'
+            style={{
+              left: 5,
+              top: 98,
+              color: "#3b82f6",
+              textShadow: "0 1px 0 rgba(255,255,255,0.6)",
+              textAlign: bx < width / 2 ? "left" : "right",
             }}
           >
             <span>{cityB}</span>
           </div>
         </>
       )}
-
     </div>
-  )
+  );
 }
 
-export default TicketCard
+export default TicketCard;
