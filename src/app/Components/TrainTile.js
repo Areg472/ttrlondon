@@ -12,6 +12,9 @@ export const PlayerHandContext = React.createContext({
   orange: 0,
   black: 0,
   rainbow: 0,
+  // Optional mutation API; providers may attach this so routes can spend cards on claim
+  spendCards: () => {},
+  addPoints: () => {},
 });
 
 export function TrainTileCont({ children, trainCount, x, y, isDouble }) {
@@ -19,6 +22,8 @@ export function TrainTileCont({ children, trainCount, x, y, isDouble }) {
   const [trainTriggerDouble, setTrainTriggerDouble] = useState(false);
   const [claimedSide, setClaimedSide] = useState(null);
   const playerHand = useContext(PlayerHandContext);
+
+  const baseColors = ["orange", "yellow", "blue", "green", "black", "red"];
 
   const canClaimWithColor = (routeColor) => {
     const length = Number(trainCount) || 0;
@@ -28,29 +33,108 @@ export function TrainTileCont({ children, trainCount, x, y, isDouble }) {
 
     if (routeColor === "gray") {
       // Any single color can be used, plus wilds
-      const colors = ["orange", "yellow", "blue", "green", "black", "red"];
-      return colors.some((c) => (playerHand?.[c] ?? 0) + wilds >= length);
+      return (
+        baseColors.some((c) => (playerHand?.[c] ?? 0) + wilds >= length) ||
+        wilds >= length
+      );
     }
 
     const have = (playerHand?.[routeColor] ?? 0) + wilds;
     return have >= length;
   };
 
+  // Compute how to pay for a route of given color/length using player's hand. Returns a map of deductions or null if not payable.
+  const computeDeduction = (routeColor) => {
+    const length = Number(trainCount) || 0;
+    const wilds = playerHand?.rainbow ?? 0;
+    if (!length) return null;
+
+    if (routeColor === "gray") {
+      // Try each base color to minimize wild usage
+      let best = null;
+      for (const c of baseColors) {
+        const have = playerHand?.[c] ?? 0;
+        const useColor = Math.min(have, length);
+        const needWild = length - useColor;
+        if (needWild <= wilds) {
+          if (
+            !best ||
+            needWild < best.needWild ||
+            (needWild === best.needWild && useColor > best.useColor)
+          ) {
+            best = { color: c, useColor, needWild };
+          }
+        }
+      }
+      // Fallback: all wilds if enough
+      if (!best && wilds >= length) {
+        best = { color: null, useColor: 0, needWild: length };
+      }
+      if (!best) return null;
+      const deduction = {};
+      if (best.color) deduction[best.color] = best.useColor;
+      if (best.needWild) deduction["rainbow"] = best.needWild;
+      return deduction;
+    }
+
+    // Colored route
+    const have = playerHand?.[routeColor] ?? 0;
+    const useColor = Math.min(have, length);
+    const needWild = length - useColor;
+    if (needWild <= wilds) {
+      const deduction = {};
+      if (useColor) deduction[routeColor] = useColor;
+      if (needWild) deduction["rainbow"] = needWild;
+      return deduction;
+    }
+    return null;
+  };
+
   const toggleTrigger = (index, tileColor, isDisabled) => {
     if (isDisabled) return; // Not enough cards to claim this route
+
+    const trySpend = () => {
+      const deduction = computeDeduction(tileColor);
+      if (deduction && typeof playerHand?.spendCards === "function") {
+        playerHand.spendCards(deduction);
+      }
+
+      // Handle scoring: 1:1, 2:2, 3:4, 4:7
+      if (typeof playerHand?.addPoints === "function") {
+        const count = Number(trainCount) || 0;
+        let points = 0;
+        if (count === 1) points = 1;
+        else if (count === 2) points = 2;
+        else if (count === 3) points = 4;
+        else if (count === 4) points = 7;
+
+        if (points > 0) {
+          playerHand.addPoints(points);
+        }
+      }
+    };
+
     if (isDouble) {
       const side = index % 2 === 0 ? "even" : "odd";
       // If the other side is already claimed, block further clicks
       if (claimedSide && claimedSide !== side) return;
       // First successful click claims this side and locks the other
-      if (!claimedSide) setClaimedSide(side);
+      if (!claimedSide) {
+        // Spend cards once at claim time
+        trySpend();
+        setClaimedSide(side);
+      }
       if (side === "even") {
         setTrainTrigger(true);
       } else {
         setTrainTriggerDouble(true);
       }
     } else {
-      setTrainTrigger(!trainTrigger);
+      // Single route: claim once (no toggle off) and spend at first claim
+      if (!trainTrigger) {
+        trySpend();
+        setTrainTrigger(true);
+      }
     }
     console.log(
       `${trainCount} Train tiles clicked at index ${index} (color: ${tileColor})`,
@@ -154,7 +238,7 @@ export function TrainTile({
 
   return (
     <div
-      className={`flex-shrink-0 rounded-sm shadow-sm border border-gray-300 transition-transform duration-300 relative ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
+      className={`flex-shrink-0 rounded-sm shadow-sm border border-gray-300 transition-transform duration-300 relative ${disabled ? "cursor-default" : "cursor-pointer"}`}
       onClick={handleClick}
       style={{
         width: "80px",

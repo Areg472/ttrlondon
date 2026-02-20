@@ -138,7 +138,7 @@ const TRAIN_CARDS = ALL_TRAIN_CARDS.slice(5);
 export { TRAIN_CARDS, TRAIN_CARDS_ON_DISPLAY };
 
 export default function Home() {
-  const [playerHand] = useState({
+  const [playerHand, setPlayerHand] = useState({
     orange: 2,
     blue: 1,
     black: 3,
@@ -147,20 +147,50 @@ export default function Home() {
     green: 0,
     rainbow: 0,
   });
+  const [score, setScore] = useState(0);
+
+  const spendCards = (deduction) => {
+    // deduction is a map like { red: 2, rainbow: 1 }
+    setPlayerHand((prev) => {
+      const next = { ...prev };
+      for (const [k, v] of Object.entries(deduction || {})) {
+        next[k] = Math.max(0, (next[k] ?? 0) - v);
+      }
+      return next;
+    });
+  };
+
+  const addPoints = (points) => {
+    setScore((prev) => prev + points);
+  };
 
   return (
     <div className="flex min-h-screen flex-col items-center bg-zinc-100 font-sans dark:bg-zinc-900 p-8">
-      <header className="mb-8 text-center">
+      <header className="mb-8 text-center flex items-center justify-center gap-12">
         <h1 className="text-4xl font-bold text-zinc-800 dark:text-zinc-100 mb-2">
           Ticket to Ride London
         </h1>
+
+        {/* Score Counter */}
+        <div className="z-50 select-none">
+          <div className="backdrop-blur-sm border-2  border-zinc-800 rounded-2xl px-6 py-3 shadow-lg flex flex-col items-center">
+            <span className="text-[10px] uppercase font-black tracking-[0.2em] text-zinc-400 mb-0.5">
+              Points
+            </span>
+            <span className="text-3xl text-zinc-800 text-zinc-100 tabular-nums leading-none">
+              {score}
+            </span>
+          </div>
+        </div>
       </header>
 
       <main className="w-full flex justify-center gap-8 p-4">
         <div className="flex flex-col items-center">
           <div className="relative w-[800px] h-[600px] overflow-auto shadow-2xl rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-zinc-200 dark:bg-zinc-800">
             <div className="relative min-w-[1200px] aspect-[18/10] bg-white dark:bg-black overflow-hidden">
-              <PlayerHandContext.Provider value={playerHand}>
+              <PlayerHandContext.Provider
+                value={{ ...playerHand, spendCards, addPoints }}
+              >
                 <div
                   className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none"
                   style={{
@@ -355,19 +385,37 @@ export default function Home() {
               <p className="text-sm text-zinc-500 dark:text-zinc-400">
                 Train Cards
               </p>
-              <div className="flex flex-row justify-center border-2 border-dashed">
-                <div className="flex flex-col">
-                  <TrainCards color="orange" />
-                  <TrainCards color="orange" />
-                </div>
-                <div className="flex flex-col">
-                  <TrainCards color="blue" />
-                </div>
-                <div className="flex flex-col">
-                  <TrainCards color="black" />
-                  <TrainCards color="black" />
-                  <TrainCards color="black" />
-                </div>
+              <div className="flex flex-row justify-center border-2 border-dashed p-2 gap-4">
+                {Object.entries(playerHand).map(([color, count]) => {
+                  if (color === "rainbow") return null; // We'll handle rainbow separately or at the end
+                  if (count <= 0) return null;
+                  return (
+                    <div key={color} className="flex flex-col">
+                      {Array.from({ length: count }).map((_, i) => (
+                        <div
+                          key={i}
+                          className={i > 0 ? "-mt-24" : ""}
+                          style={{ zIndex: i }}
+                        >
+                          <TrainCards color={color} />
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+                {playerHand.rainbow > 0 && (
+                  <div className="flex flex-col">
+                    {Array.from({ length: playerHand.rainbow }).map((_, i) => (
+                      <div
+                        key={i}
+                        className={i > 0 ? "-mt-24" : ""}
+                        style={{ zIndex: i }}
+                      >
+                        <TrainCards rainbow={true} />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
