@@ -98,7 +98,16 @@ const CITIES = [
 
 export { CITIES };
 
-const TICKETS = [
+function shuffle(array) {
+  const next = [...array];
+  for (let i = next.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [next[i], next[j]] = [next[j], next[i]];
+  }
+  return next;
+}
+
+const TICKETS = shuffle([
   { cityA: "British Museum", cityB: "Piccadilly Circus", points: 2 },
   { cityA: "Baker Street", cityB: "Trafalgar Square", points: 5 },
   { cityA: "Buckingham Palace", cityB: "Brick Lane", points: 9 },
@@ -119,35 +128,76 @@ const TICKETS = [
   { cityA: "Big Ben", cityB: "The Charterhouse", points: 5 },
   { cityA: "Big Ben", cityB: "Tower of London", points: 6 },
   { cityA: "British Museum", cityB: "St Paul's", points: 4 },
-].sort(() => Math.random() - 0.5);
+]);
 export { TICKETS };
 
 export const TICKETS_PLAYER_EXAMPLE = TICKETS.slice(0, 4);
 
 // Train cards deck: 8 rainbow + 6 of each color (orange, yellow, blue, green, black, red) = 44 total
-const ALL_TRAIN_CARDS = [
+const INITIAL_TRAIN_CARDS_DECK = shuffle([
   ...Array.from({ length: 8 }, () => ({ rainbow: true })),
   ...["orange", "yellow", "blue", "green", "black", "red"].flatMap((c) =>
     Array.from({ length: 6 }, () => ({ color: c })),
   ),
-].sort(() => Math.random() - 0.5);
-
-const TRAIN_CARDS_ON_DISPLAY = ALL_TRAIN_CARDS.slice(0, 5);
-const TRAIN_CARDS = ALL_TRAIN_CARDS.slice(5);
-
-export { TRAIN_CARDS, TRAIN_CARDS_ON_DISPLAY };
+]);
 
 export default function Home() {
   const [playerHand, setPlayerHand] = useState({
-    orange: 2,
-    blue: 1,
-    black: 3,
+    orange: 0,
+    blue: 0,
+    black: 0,
     red: 0,
     yellow: 0,
     green: 0,
     rainbow: 0,
   });
   const [score, setScore] = useState(0);
+
+  // Deck and Display cards as state
+  const [displayCards, setDisplayCards] = useState(
+    INITIAL_TRAIN_CARDS_DECK.slice(0, 5),
+  );
+  const [trainDeck, setTrainDeck] = useState(INITIAL_TRAIN_CARDS_DECK.slice(5));
+
+  const drawFromDisplay = (index) => {
+    const card = displayCards[index];
+    if (!card) return;
+
+    // Add to player hand
+    const colorKey = card.rainbow ? "rainbow" : card.color;
+    setPlayerHand((prev) => ({
+      ...prev,
+      [colorKey]: (prev[colorKey] ?? 0) + 1,
+    }));
+
+    // Replace from deck
+    setDisplayCards((prev) => {
+      const next = [...prev];
+      if (trainDeck.length > 0) {
+        next[index] = trainDeck[0];
+        setTrainDeck((d) => d.slice(1));
+      } else {
+        next.splice(index, 1);
+      }
+      return next;
+    });
+  };
+
+  const drawFromDeck = () => {
+    if (trainDeck.length === 0) return;
+
+    const card = trainDeck[0];
+    const colorKey = card.rainbow ? "rainbow" : card.color;
+
+    // Add to player hand
+    setPlayerHand((prev) => ({
+      ...prev,
+      [colorKey]: (prev[colorKey] ?? 0) + 1,
+    }));
+
+    // Remove from deck
+    setTrainDeck((d) => d.slice(1));
+  };
 
   const spendCards = (deduction) => {
     // deduction is a map like { red: 2, rainbow: 1 }
@@ -177,7 +227,7 @@ export default function Home() {
             <span className="text-[10px] uppercase font-black tracking-[0.2em] text-zinc-400 mb-0.5">
               Points
             </span>
-            <span className="text-3xl text-zinc-800 text-zinc-100 tabular-nums leading-none">
+            <span className="text-3xl  text-zinc-100 tabular-nums leading-none">
               {score}
             </span>
           </div>
@@ -381,41 +431,39 @@ export default function Home() {
             Player board
           </p>
           <div className="flex flex-row mt-10" style={{ gap: "2.5rem" }}>
-            <div className="gap-2 flex flex-col justify-center">
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            <div className="gap-2 flex flex-col justify-center max-w-[600px]">
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 font-bold mb-2">
                 Train Cards
               </p>
-              <div className="flex flex-row justify-center border-2 border-dashed p-2 gap-4">
-                {Object.entries(playerHand).map(([color, count]) => {
-                  if (color === "rainbow") return null; // We'll handle rainbow separately or at the end
-                  if (count <= 0) return null;
-                  return (
-                    <div key={color} className="flex flex-col">
-                      {Array.from({ length: count }).map((_, i) => (
-                        <div
-                          key={i}
-                          className={i > 0 ? "-mt-24" : ""}
-                          style={{ zIndex: i }}
-                        >
-                          <TrainCards color={color} />
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })}
-                {playerHand.rainbow > 0 && (
-                  <div className="flex flex-col">
-                    {Array.from({ length: playerHand.rainbow }).map((_, i) => (
+              <div className="grid grid-cols-3 border-2 border-dashed p-4 gap-x-8 gap-y-16 min-w-[500px] min-h-[200px]">
+                {Object.entries(playerHand)
+                  .filter(([_, count]) => count > 0)
+                  .map(([color, count]) => {
+                    return (
                       <div
-                        key={i}
-                        className={i > 0 ? "-mt-24" : ""}
-                        style={{ zIndex: i }}
+                        key={color}
+                        className="flex flex-col relative h-[140px]"
                       >
-                        <TrainCards rainbow={true} />
+                        {Array.from({ length: count }).map((_, i) => (
+                          <div
+                            key={i}
+                            className="absolute transition-all"
+                            style={{
+                              zIndex: i,
+                              top: i * 20, // slightly more spread out for horizontal grid
+                            }}
+                          >
+                            <TrainCards
+                              color={color === "rainbow" ? undefined : color}
+                              rainbow={color === "rainbow"}
+                              width={140}
+                              height={96}
+                            />
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                )}
+                    );
+                  })}
               </div>
             </div>
 
@@ -469,8 +517,11 @@ export default function Home() {
           </div>
 
           {/* Train Card Stack */}
-          <div className="relative w-[176px] h-[120px] mt-16">
-            {TRAIN_CARDS.map((c, i) => (
+          <div
+            className="relative w-[176px] h-[120px] mt-16 cursor-pointer"
+            onClick={drawFromDeck}
+          >
+            {trainDeck.map((c, i) => (
               <div
                 key={i}
                 className="absolute transition-transform hover:-translate-y-1"
@@ -488,20 +539,21 @@ export default function Home() {
               </div>
             ))}
             <div className="absolute -bottom-8 left-0 right-0 text-center text-xs font-bold uppercase tracking-wider text-zinc-500">
-              Train Deck ({TRAIN_CARDS.length})
+              Train Deck ({trainDeck.length})
             </div>
           </div>
 
           {/* Cards on Display */}
-          <div className="relative w-[176px] mt-20">
+          <div className="relative w-[176px] mt-10">
             <div className="mb-4 text-center text-xs font-bold uppercase tracking-wider text-zinc-500">
               Cards on Display
             </div>
             <div className="flex flex-col gap-4">
-              {TRAIN_CARDS_ON_DISPLAY.map((c, i) => (
+              {displayCards.map((c, i) => (
                 <div
                   key={i}
-                  className="transition-transform hover:-translate-y-1"
+                  className="transition-transform hover:-translate-y-1 cursor-pointer"
+                  onClick={() => drawFromDisplay(i)}
                 >
                   <TrainCards
                     color={c.color}
