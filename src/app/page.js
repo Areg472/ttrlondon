@@ -152,6 +152,7 @@ export default function Home() {
     rainbow: 0,
   });
   const [score, setScore] = useState(0);
+  const [placedTiles, setPlacedTiles] = useState(0);
 
   // Deck and Display cards as state
   const [displayCards, setDisplayCards] = useState(
@@ -214,6 +215,15 @@ export default function Home() {
     setScore((prev) => prev + points);
   };
 
+  const incrementPlaced = (n) => {
+    setPlacedTiles((prev) => prev + (Number(n) || 0));
+  };
+
+  const canPlaceMore = (needed) => {
+    const n = Number(needed) || 0;
+    return placedTiles + n <= 17;
+  };
+
   return (
     <div className="flex min-h-screen flex-col items-center bg-zinc-100 font-sans dark:bg-zinc-900 p-8">
       <header className="mb-8 text-center flex items-center justify-center gap-12">
@@ -239,7 +249,14 @@ export default function Home() {
           <div className="relative w-[800px] h-[600px] overflow-auto shadow-2xl rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-zinc-200 dark:bg-zinc-800">
             <div className="relative min-w-[1200px] aspect-[18/10] bg-white dark:bg-black overflow-hidden">
               <PlayerHandContext.Provider
-                value={{ ...playerHand, spendCards, addPoints }}
+                value={{
+                  ...playerHand,
+                  spendCards,
+                  addPoints,
+                  placedTiles,
+                  canPlaceMore,
+                  incrementPlaced,
+                }}
               >
                 <div
                   className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none"

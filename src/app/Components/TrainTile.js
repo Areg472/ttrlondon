@@ -12,9 +12,12 @@ export const PlayerHandContext = React.createContext({
   orange: 0,
   black: 0,
   rainbow: 0,
+  placedTiles: 0,
   // Optional mutation API; providers may attach this so routes can spend cards on claim
   spendCards: () => {},
   addPoints: () => {},
+  canPlaceMore: () => true,
+  incrementPlaced: () => {},
 });
 
 export function TrainTileCont({ children, trainCount, x, y, isDouble }) {
@@ -30,6 +33,11 @@ export function TrainTileCont({ children, trainCount, x, y, isDouble }) {
     const wilds = playerHand?.rainbow ?? 0;
 
     if (!length) return false;
+
+    // Also enforce global placement cap
+    if (typeof playerHand?.canPlaceMore === "function") {
+      if (!playerHand.canPlaceMore(length)) return false;
+    }
 
     if (routeColor === "gray") {
       // Any single color can be used, plus wilds
@@ -94,6 +102,12 @@ export function TrainTileCont({ children, trainCount, x, y, isDouble }) {
     if (isDisabled) return; // Not enough cards to claim this route
 
     const trySpend = () => {
+      const length = Number(trainCount) || 0;
+      // Capacity gate: block if exceeding 17 tiles in total
+      if (typeof playerHand?.canPlaceMore === "function") {
+        if (!playerHand.canPlaceMore(length)) return false;
+      }
+
       const deduction = computeDeduction(tileColor);
       if (deduction && typeof playerHand?.spendCards === "function") {
         playerHand.spendCards(deduction);
@@ -101,17 +115,22 @@ export function TrainTileCont({ children, trainCount, x, y, isDouble }) {
 
       // Handle scoring: 1:1, 2:2, 3:4, 4:7
       if (typeof playerHand?.addPoints === "function") {
-        const count = Number(trainCount) || 0;
         let points = 0;
-        if (count === 1) points = 1;
-        else if (count === 2) points = 2;
-        else if (count === 3) points = 4;
-        else if (count === 4) points = 7;
+        if (length === 1) points = 1;
+        else if (length === 2) points = 2;
+        else if (length === 3) points = 4;
+        else if (length === 4) points = 7;
 
         if (points > 0) {
           playerHand.addPoints(points);
         }
       }
+
+      if (typeof playerHand?.incrementPlaced === "function") {
+        playerHand.incrementPlaced(length);
+      }
+
+      return true;
     };
 
     if (isDouble) {
@@ -121,7 +140,8 @@ export function TrainTileCont({ children, trainCount, x, y, isDouble }) {
       // First successful click claims this side and locks the other
       if (!claimedSide) {
         // Spend cards once at claim time
-        trySpend();
+        const ok = trySpend();
+        if (!ok) return; // capacity blocked
         setClaimedSide(side);
       }
       if (side === "even") {
@@ -132,7 +152,8 @@ export function TrainTileCont({ children, trainCount, x, y, isDouble }) {
     } else {
       // Single route: claim once (no toggle off) and spend at first claim
       if (!trainTrigger) {
-        trySpend();
+        const ok = trySpend();
+        if (!ok) return; // capacity blocked
         setTrainTrigger(true);
       }
     }
