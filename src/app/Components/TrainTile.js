@@ -1,22 +1,60 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useContext, useMemo, useState } from "react";
+
+// Simple context to provide player's current train card counts across the board
+// Expected shape: { red:number, blue:number, green:number, yellow:number, orange:number, black:number, rainbow:number }
+export const PlayerHandContext = React.createContext({
+  red: 0,
+  blue: 0,
+  green: 0,
+  yellow: 0,
+  orange: 0,
+  black: 0,
+  rainbow: 0,
+});
 
 export function TrainTileCont({ children, trainCount, x, y, isDouble }) {
   const [trainTrigger, setTrainTrigger] = useState(false);
   const [trainTriggerDouble, setTrainTriggerDouble] = useState(false);
+  const [claimedSide, setClaimedSide] = useState(null);
+  const playerHand = useContext(PlayerHandContext);
 
-  const toggleTrigger = (index) => {
+  const canClaimWithColor = (routeColor) => {
+    const length = Number(trainCount) || 0;
+    const wilds = playerHand?.rainbow ?? 0;
+
+    if (!length) return false;
+
+    if (routeColor === "gray") {
+      // Any single color can be used, plus wilds
+      const colors = ["orange", "yellow", "blue", "green", "black", "red"];
+      return colors.some((c) => (playerHand?.[c] ?? 0) + wilds >= length);
+    }
+
+    const have = (playerHand?.[routeColor] ?? 0) + wilds;
+    return have >= length;
+  };
+
+  const toggleTrigger = (index, tileColor, isDisabled) => {
+    if (isDisabled) return; // Not enough cards to claim this route
     if (isDouble) {
-      if (index % 2 === 0) {
-        setTrainTrigger(!trainTrigger);
+      const side = index % 2 === 0 ? "even" : "odd";
+      // If the other side is already claimed, block further clicks
+      if (claimedSide && claimedSide !== side) return;
+      // First successful click claims this side and locks the other
+      if (!claimedSide) setClaimedSide(side);
+      if (side === "even") {
+        setTrainTrigger(true);
       } else {
-        setTrainTriggerDouble(!trainTriggerDouble);
+        setTrainTriggerDouble(true);
       }
     } else {
       setTrainTrigger(!trainTrigger);
     }
-    console.log(`${trainCount} Train tiles clicked at index ${index}`);
+    console.log(
+      `${trainCount} Train tiles clicked at index ${index} (color: ${tileColor})`,
+    );
   };
 
   // Recursively nest children so they attach at the ends
@@ -36,16 +74,32 @@ export function TrainTileCont({ children, trainCount, x, y, isDouble }) {
       }
     }
 
-    const currentTrigger = isDouble
-      ? index % 2 === 0
+    const side = index % 2 === 0 ? "even" : "odd";
+
+    let currentTrigger = isDouble
+      ? side === "even"
         ? trainTrigger
         : trainTriggerDouble
       : trainTrigger;
+
+    const tileColor = first.props?.color;
+    // Base disabled from hand
+    let disabled = !canClaimWithColor(tileColor);
+    // If one side already claimed, lock the opposite side
+    if (isDouble && claimedSide && claimedSide !== side) {
+      disabled = true;
+      currentTrigger = false;
+    }
+    // If this side is the claimed one, force it to appear filled
+    if (isDouble && claimedSide && claimedSide === side) {
+      currentTrigger = true;
+    }
 
     return React.cloneElement(first, {
       trainTrigger: currentTrigger,
       childPosition,
       index,
+      disabled,
       onTileClick: toggleTrigger,
       children: renderNestedChildren(rest, index + 1),
     });
@@ -76,6 +130,7 @@ export function TrainTile({
   childPosition,
   index,
   onTileClick,
+  disabled,
 }) {
   const defaultPosition = {
     position: "absolute",
@@ -91,14 +146,15 @@ export function TrainTile({
 
   const handleClick = (e) => {
     e.stopPropagation();
+    if (disabled) return;
     if (onTileClick) {
-      onTileClick(index);
+      onTileClick(index, color, disabled);
     }
   };
 
   return (
     <div
-      className="flex-shrink-0 rounded-sm shadow-sm border border-gray-300 transition-transform duration-300 relative cursor-pointer"
+      className={`flex-shrink-0 rounded-sm shadow-sm border border-gray-300 transition-transform duration-300 relative ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
       onClick={handleClick}
       style={{
         width: "80px",
