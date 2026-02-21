@@ -20,7 +20,6 @@ export function TrainCards({
       className="relative rounded-lg shadow-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 overflow-hidden select-none"
       style={{ width, height }}
     >
-      {/* subtle paper texture dots */}
       <div
         className="absolute inset-0 opacity-[0.06] dark:opacity-[0.08] pointer-events-none"
         style={{
@@ -40,7 +39,6 @@ export function TrainCards({
           className="absolute inset-0 transition-transform hover:scale-105 cursor-pointer flex items-center justify-center"
           style={faceStyle}
         >
-          {/* Optional center badge/icon placeholder */}
           <div className="w-10 h-10 rounded-full bg-white/60 dark:bg-zinc-200/40 border border-zinc-400 dark:border-zinc-500 shadow-inner" />
         </div>
       )}

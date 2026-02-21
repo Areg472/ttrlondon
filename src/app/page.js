@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   TrainTile,
   TrainTileCont,
@@ -133,7 +133,6 @@ export { TICKETS };
 
 export const TICKETS_PLAYER_EXAMPLE = TICKETS.slice(0, 4);
 
-// Train cards deck: 8 rainbow + 6 of each color (orange, yellow, blue, green, black, red) = 44 total
 const INITIAL_TRAIN_CARDS_DECK = shuffle([
   ...Array.from({ length: 8 }, () => ({ rainbow: true })),
   ...["orange", "yellow", "blue", "green", "black", "red"].flatMap((c) =>
@@ -153,60 +152,97 @@ export default function Home() {
   });
   const [score, setScore] = useState(0);
   const [placedTiles, setPlacedTiles] = useState(0);
+  const [discardPile, setDiscardPile] = useState([]);
+  const [displayCards, setDisplayCards] = useState([]);
+  const [trainDeck, setTrainDeck] = useState(INITIAL_TRAIN_CARDS_DECK);
 
-  // Deck and Display cards as state
-  const [displayCards, setDisplayCards] = useState(
-    INITIAL_TRAIN_CARDS_DECK.slice(0, 5),
+  const checkThreeRainbows = useCallback(
+    (currentDisplay, currentDeck, currentDiscard) => {
+      let display = [...currentDisplay],
+        deck = [...currentDeck],
+        discard = [...currentDiscard];
+      while (display.filter((c) => c.rainbow).length >= 3) {
+        discard = [...discard, ...display];
+        if (deck.length < 5 && discard.length > 0) {
+          deck = [...deck, ...shuffle(discard)];
+          discard = [];
+        }
+        display = deck.slice(0, 5);
+        deck = deck.slice(5);
+        if (display.length === 0) break;
+      }
+      return { display, deck, discard };
+    },
+    [],
   );
-  const [trainDeck, setTrainDeck] = useState(INITIAL_TRAIN_CARDS_DECK.slice(5));
+
+  const [hasInitialized, setHasInitialized] = useState(false);
+  if (!hasInitialized) {
+    const { display, deck, discard } = checkThreeRainbows(
+      INITIAL_TRAIN_CARDS_DECK.slice(0, 5),
+      INITIAL_TRAIN_CARDS_DECK.slice(5),
+      [],
+    );
+    setDisplayCards(display);
+    setTrainDeck(deck);
+    setDiscardPile(discard);
+    setHasInitialized(true);
+  }
 
   const drawFromDisplay = (index) => {
     const card = displayCards[index];
     if (!card) return;
 
-    // Add to player hand
     const colorKey = card.rainbow ? "rainbow" : card.color;
     setPlayerHand((prev) => ({
       ...prev,
       [colorKey]: (prev[colorKey] ?? 0) + 1,
     }));
 
-    // Replace from deck
-    setDisplayCards((prev) => {
-      const next = [...prev];
-      if (trainDeck.length > 0) {
-        next[index] = trainDeck[0];
-        setTrainDeck((d) => d.slice(1));
-      } else {
-        next.splice(index, 1);
-      }
-      return next;
-    });
+    let nextDisplay = [...displayCards],
+      nextDeck = [...trainDeck],
+      nextDiscard = [...discardPile];
+    if (nextDeck.length > 0) {
+      nextDisplay[index] = nextDeck[0];
+      nextDeck = nextDeck.slice(1);
+    } else {
+      nextDisplay.splice(index, 1);
+    }
+
+    const result = checkThreeRainbows(nextDisplay, nextDeck, nextDiscard);
+    setDisplayCards(result.display);
+    setTrainDeck(result.deck);
+    setDiscardPile(result.discard);
   };
 
   const drawFromDeck = () => {
-    if (trainDeck.length === 0) return;
-
-    const card = trainDeck[0];
+    let currentDeck = [...trainDeck],
+      currentDiscard = [...discardPile];
+    if (currentDeck.length === 0 && currentDiscard.length > 0) {
+      currentDeck = shuffle(currentDiscard);
+      currentDiscard = [];
+    }
+    if (currentDeck.length === 0) return;
+    const card = currentDeck[0];
     const colorKey = card.rainbow ? "rainbow" : card.color;
-
-    // Add to player hand
     setPlayerHand((prev) => ({
       ...prev,
       [colorKey]: (prev[colorKey] ?? 0) + 1,
     }));
-
-    // Remove from deck
-    setTrainDeck((d) => d.slice(1));
+    setTrainDeck(currentDeck.slice(1));
+    setDiscardPile(currentDiscard);
   };
 
   const spendCards = (deduction) => {
-    // deduction is a map like { red: 2, rainbow: 1 }
     setPlayerHand((prev) => {
-      const next = { ...prev };
+      const next = { ...prev },
+        spent = [];
       for (const [k, v] of Object.entries(deduction || {})) {
         next[k] = Math.max(0, (next[k] ?? 0) - v);
+        for (let i = 0; i < v; i++)
+          spent.push(k === "rainbow" ? { rainbow: true } : { color: k });
       }
+      setDiscardPile((prevDiscard) => [...prevDiscard, ...spent]);
       return next;
     });
   };
@@ -231,7 +267,6 @@ export default function Home() {
           Ticket to Ride London
         </h1>
 
-        {/* Score Counter */}
         <div className="z-50 select-none">
           <div className="backdrop-blur-sm border-2  border-zinc-800 rounded-2xl px-6 py-3 shadow-lg flex flex-col items-center">
             <span className="text-[10px] uppercase font-black tracking-[0.2em] text-zinc-400 mb-0.5">
@@ -267,7 +302,6 @@ export default function Home() {
                   }}
                 ></div>
 
-                {/* Train Connections */}
                 <TrainTileCont trainCount={2} x={80} y={150}>
                   <TrainTile color="blue" trainColor="yellow" angle={330} />
                   <TrainTile color="blue" trainColor="yellow" angle={0} />
@@ -434,7 +468,6 @@ export default function Home() {
                   <TrainTile color="black" trainColor="yellow" angle={285} />
                 </TrainTileCont>
 
-                {/* Cities */}
                 {CITIES.map((city) => (
                   <City key={city.name} {...city} />
                 ))}
@@ -467,7 +500,7 @@ export default function Home() {
                             className="absolute transition-all"
                             style={{
                               zIndex: i,
-                              top: i * 20, // slightly more spread out for horizontal grid
+                              top: i * 20,
                             }}
                           >
                             <TrainCards
@@ -508,7 +541,6 @@ export default function Home() {
         </div>
 
         <div className="flex flex-col gap-12">
-          {/* Ticket Stack */}
           <div className="relative w-[210px] h-[120px] mt-10">
             {TICKETS.map((t, i) => (
               <div
@@ -533,7 +565,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Train Card Stack */}
           <div
             className="relative w-[176px] h-[120px] mt-16 cursor-pointer"
             onClick={drawFromDeck}
@@ -560,7 +591,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Cards on Display */}
           <div className="relative w-[176px] mt-10">
             <div className="mb-4 text-center text-xs font-bold uppercase tracking-wider text-zinc-500">
               Cards on Display
@@ -572,6 +602,22 @@ export default function Home() {
                   className="transition-transform hover:-translate-y-1 cursor-pointer"
                   onClick={() => drawFromDisplay(i)}
                 >
+                  <TrainCards
+                    color={c.color}
+                    rainbow={!!c.rainbow}
+                    opposite={false}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="relative w-[176px] mt-10">
+            <div className="mb-4 text-center text-xs font-bold uppercase tracking-wider text-zinc-500">
+              Discard Pile ({discardPile.length})
+            </div>
+            <div className="flex flex-col gap-4">
+              {discardPile.slice(-1).map((c, i) => (
+                <div key={i} className="opacity-60">
                   <TrainCards
                     color={c.color}
                     rainbow={!!c.rainbow}

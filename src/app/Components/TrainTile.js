@@ -1,9 +1,7 @@
 "use client";
 
-import React, { useContext, useMemo, useState } from "react";
+import React, { useContext, useState } from "react";
 
-// Simple context to provide player's current train card counts across the board
-// Expected shape: { red:number, blue:number, green:number, yellow:number, orange:number, black:number, rainbow:number }
 export const PlayerHandContext = React.createContext({
   red: 0,
   blue: 0,
@@ -13,7 +11,6 @@ export const PlayerHandContext = React.createContext({
   black: 0,
   rainbow: 0,
   placedTiles: 0,
-  // Optional mutation API; providers may attach this so routes can spend cards on claim
   spendCards: () => {},
   addPoints: () => {},
   canPlaceMore: () => true,
@@ -29,36 +26,27 @@ export function TrainTileCont({ children, trainCount, x, y, isDouble }) {
   const baseColors = ["orange", "yellow", "blue", "green", "black", "red"];
 
   const canClaimWithColor = (routeColor) => {
-    const length = Number(trainCount) || 0;
-    const wilds = playerHand?.rainbow ?? 0;
-
-    if (!length) return false;
-
-    // Also enforce global placement cap
-    if (typeof playerHand?.canPlaceMore === "function") {
-      if (!playerHand.canPlaceMore(length)) return false;
-    }
-
-    if (routeColor === "gray") {
-      // Any single color can be used, plus wilds
+    const length = Number(trainCount) || 0,
+      wilds = playerHand?.rainbow ?? 0;
+    if (
+      !length ||
+      (playerHand?.canPlaceMore && !playerHand.canPlaceMore(length))
+    )
+      return false;
+    if (routeColor === "gray")
       return (
         baseColors.some((c) => (playerHand?.[c] ?? 0) + wilds >= length) ||
         wilds >= length
       );
-    }
-
-    const have = (playerHand?.[routeColor] ?? 0) + wilds;
-    return have >= length;
+    return (playerHand?.[routeColor] ?? 0) + wilds >= length;
   };
 
-  // Compute how to pay for a route of given color/length using player's hand. Returns a map of deductions or null if not payable.
   const computeDeduction = (routeColor) => {
     const length = Number(trainCount) || 0;
     const wilds = playerHand?.rainbow ?? 0;
     if (!length) return null;
 
     if (routeColor === "gray") {
-      // Try each base color to minimize wild usage
       let best = null;
       for (const c of baseColors) {
         const have = playerHand?.[c] ?? 0;
@@ -74,7 +62,6 @@ export function TrainTileCont({ children, trainCount, x, y, isDouble }) {
           }
         }
       }
-      // Fallback: all wilds if enough
       if (!best && wilds >= length) {
         best = { color: null, useColor: 0, needWild: length };
       }
@@ -85,7 +72,6 @@ export function TrainTileCont({ children, trainCount, x, y, isDouble }) {
       return deduction;
     }
 
-    // Colored route
     const have = playerHand?.[routeColor] ?? 0;
     const useColor = Math.min(have, length);
     const needWild = length - useColor;
@@ -99,70 +85,31 @@ export function TrainTileCont({ children, trainCount, x, y, isDouble }) {
   };
 
   const toggleTrigger = (index, tileColor, isDisabled) => {
-    if (isDisabled) return; // Not enough cards to claim this route
-
+    if (isDisabled) return;
     const trySpend = () => {
       const length = Number(trainCount) || 0;
-      // Capacity gate: block if exceeding 17 tiles in total
-      if (typeof playerHand?.canPlaceMore === "function") {
-        if (!playerHand.canPlaceMore(length)) return false;
-      }
-
+      if (playerHand?.canPlaceMore && !playerHand.canPlaceMore(length))
+        return false;
       const deduction = computeDeduction(tileColor);
-      if (deduction && typeof playerHand?.spendCards === "function") {
-        playerHand.spendCards(deduction);
+      if (deduction && playerHand?.spendCards) playerHand.spendCards(deduction);
+      if (playerHand?.addPoints) {
+        const points = { 1: 1, 2: 2, 3: 4, 4: 7 }[length] || 0;
+        if (points) playerHand.addPoints(points);
       }
-
-      // Handle scoring: 1:1, 2:2, 3:4, 4:7
-      if (typeof playerHand?.addPoints === "function") {
-        let points = 0;
-        if (length === 1) points = 1;
-        else if (length === 2) points = 2;
-        else if (length === 3) points = 4;
-        else if (length === 4) points = 7;
-
-        if (points > 0) {
-          playerHand.addPoints(points);
-        }
-      }
-
-      if (typeof playerHand?.incrementPlaced === "function") {
-        playerHand.incrementPlaced(length);
-      }
-
+      if (playerHand?.incrementPlaced) playerHand.incrementPlaced(length);
       return true;
     };
-
     if (isDouble) {
       const side = index % 2 === 0 ? "even" : "odd";
-      // If the other side is already claimed, block further clicks
       if (claimedSide && claimedSide !== side) return;
-      // First successful click claims this side and locks the other
-      if (!claimedSide) {
-        // Spend cards once at claim time
-        const ok = trySpend();
-        if (!ok) return; // capacity blocked
-        setClaimedSide(side);
-      }
-      if (side === "even") {
-        setTrainTrigger(true);
-      } else {
-        setTrainTriggerDouble(true);
-      }
-    } else {
-      // Single route: claim once (no toggle off) and spend at first claim
-      if (!trainTrigger) {
-        const ok = trySpend();
-        if (!ok) return; // capacity blocked
-        setTrainTrigger(true);
-      }
+      if (!claimedSide && !trySpend()) return;
+      if (!claimedSide) setClaimedSide(side);
+      side === "even" ? setTrainTrigger(true) : setTrainTriggerDouble(true);
+    } else if (!trainTrigger && trySpend()) {
+      setTrainTrigger(true);
     }
-    console.log(
-      `${trainCount} Train tiles clicked at index ${index} (color: ${tileColor})`,
-    );
   };
 
-  // Recursively nest children so they attach at the ends
   const renderNestedChildren = (childrenArray, index = 0) => {
     if (childrenArray.length === 0) return null;
     const [first, ...rest] = childrenArray;
@@ -171,11 +118,9 @@ export function TrainTileCont({ children, trainCount, x, y, isDouble }) {
 
     if (isDouble) {
       if (index % 2 === 0) {
-        // For even indices (0, 2, 4...), the next tile should be BELOW it (parallel track)
         childPosition = { left: "0", top: "32px" };
       } else {
-        // For odd indices (1, 3, 5...), the next tile should be AFTER the tile above it.
-        childPosition = { left: "100%", top: "-33px" }; // -33px to account for border/offset
+        childPosition = { left: "100%", top: "-33px" };
       }
     }
 
@@ -188,14 +133,11 @@ export function TrainTileCont({ children, trainCount, x, y, isDouble }) {
       : trainTrigger;
 
     const tileColor = first.props?.color;
-    // Base disabled from hand
     let disabled = !canClaimWithColor(tileColor);
-    // If one side already claimed, lock the opposite side
     if (isDouble && claimedSide && claimedSide !== side) {
       disabled = true;
       currentTrigger = false;
     }
-    // If this side is the claimed one, force it to appear filled
     if (isDouble && claimedSide && claimedSide === side) {
       currentTrigger = true;
     }
@@ -240,7 +182,7 @@ export function TrainTile({
   const defaultPosition = {
     position: "absolute",
     left: "100%",
-    top: "-1px", // Account for border
+    top: "-1px",
     display: "flex",
     alignItems: "center",
   };
