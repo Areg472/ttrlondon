@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { CITIES } from "../page";
+import { CITIES } from "../data/gameData";
 
 export function TicketCard({
   cityA,

@@ -1,0 +1,117 @@
+import { shuffle } from "../utils/shuffle";
+
+export const CITIES = [
+  {
+    name: "Regent's Park",
+    number: 5,
+    x: 230,
+    y: 50,
+    labelPosition: "top-left",
+  },
+  {
+    name: "Baker Street",
+    number: 5,
+    x: 50,
+    y: 170,
+    labelPosition: "top-right",
+  },
+  { name: "Hyde Park", number: 5, x: 78, y: 527, labelPosition: "bottom" },
+  {
+    name: "Buckingham Palace",
+    number: 2,
+    x: 203,
+    y: 570,
+    labelPosition: "bottom",
+  },
+  { name: "King's Cross", number: 5, x: 527, y: 47, labelPosition: "top" },
+  {
+    name: "British Museum",
+    number: 1,
+    x: 450,
+    y: 200,
+    labelPosition: "bottom-left",
+  },
+  {
+    name: "Piccadilly Circus",
+    number: 2,
+    x: 326,
+    y: 410,
+    labelPosition: "left",
+  },
+  { name: "Big Ben", number: 2, x: 413, y: 590, labelPosition: "bottom" },
+  {
+    name: "Elephant & Castle",
+    number: 3,
+    x: 780,
+    y: 630,
+    labelPosition: "bottom",
+  },
+  {
+    name: "Trafalgar Square",
+    number: 2,
+    x: 400,
+    y: 470,
+    labelPosition: "top-right",
+  },
+  { name: "Waterloo", number: 3, x: 605, y: 515, labelPosition: "right" },
+  {
+    name: "Globe Theatre",
+    number: 3,
+    x: 805,
+    y: 445,
+    labelPosition: "top-right",
+  },
+  { name: "St Paul's", number: 4, x: 805, y: 326, labelPosition: "top-right" },
+  {
+    name: "The Charterhouse",
+    number: 4,
+    x: 840,
+    y: 155,
+    labelPosition: "left",
+  },
+  { name: "Brick Lane", number: 4, x: 1130, y: 155, labelPosition: "top" },
+  {
+    name: "Tower of London",
+    number: 4,
+    x: 1130,
+    y: 440,
+    labelPosition: "top-left",
+  },
+  {
+    name: "Covent Garden",
+    number: 1,
+    x: 500,
+    y: 367,
+    labelPosition: "bottom-right",
+  },
+];
+
+export const TICKETS = shuffle([
+  { cityA: "British Museum", cityB: "Piccadilly Circus", points: 2 },
+  { cityA: "Baker Street", cityB: "Trafalgar Square", points: 5 },
+  { cityA: "Buckingham Palace", cityB: "Brick Lane", points: 9 },
+  { cityA: "Hyde Park", cityB: "Covent Garden", points: 3 },
+  { cityA: "Globe Theatre", cityB: "Brick Lane", points: 4 },
+  { cityA: "Regent's Park", cityB: "Elephant & Castle", points: 9 },
+  { cityA: "King's Cross", cityB: "Buckingham Palace", points: 6 },
+  { cityA: "Baker Street", cityB: "Tower of London", points: 11 },
+  { cityA: "Trafalgar Square", cityB: "St Paul's", points: 4 },
+  { cityA: "King's Cross", cityB: "Tower of London", points: 7 },
+  { cityA: "Buckingham Palace", cityB: "Elephant & Castle", points: 5 },
+  { cityA: "Covent Garden", cityB: "Tower of London", points: 6 },
+  { cityA: "Trafalgar Square", cityB: "Globe Theatre", points: 4 },
+  { cityA: "British Museum", cityB: "Waterloo", points: 4 },
+  { cityA: "Piccadilly Circus", cityB: "Waterloo", points: 3 },
+  { cityA: "Hyde Park", cityB: "St Paul's", points: 6 },
+  { cityA: "Regent's Park", cityB: "Piccadilly Circus", points: 5 },
+  { cityA: "Big Ben", cityB: "The Charterhouse", points: 5 },
+  { cityA: "Big Ben", cityB: "Tower of London", points: 6 },
+  { cityA: "British Museum", cityB: "St Paul's", points: 4 },
+]);
+
+export const INITIAL_TRAIN_CARDS_DECK = shuffle([
+  ...Array.from({ length: 8 }, () => ({ rainbow: true })),
+  ...["orange", "yellow", "blue", "green", "black", "red"].flatMap((c) =>
+    Array.from({ length: 6 }, () => ({ color: c })),
+  ),
+]);

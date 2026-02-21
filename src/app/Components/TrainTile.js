@@ -15,6 +15,8 @@ export const PlayerHandContext = React.createContext({
   addPoints: () => {},
   canPlaceMore: () => true,
   incrementPlaced: () => {},
+  incrementTurn: () => {},
+  cardsDrawn: 0,
 });
 
 export function TrainTileCont({ children, trainCount, x, y, isDouble }) {
@@ -26,6 +28,7 @@ export function TrainTileCont({ children, trainCount, x, y, isDouble }) {
   const baseColors = ["orange", "yellow", "blue", "green", "black", "red"];
 
   const canClaimWithColor = (routeColor) => {
+    if (playerHand?.cardsDrawn > 0) return false;
     const length = Number(trainCount) || 0,
       wilds = playerHand?.rainbow ?? 0;
     if (
@@ -97,6 +100,7 @@ export function TrainTileCont({ children, trainCount, x, y, isDouble }) {
         if (points) playerHand.addPoints(points);
       }
       if (playerHand?.incrementPlaced) playerHand.incrementPlaced(length);
+      if (playerHand?.incrementTurn) playerHand.incrementTurn();
       return true;
     };
     if (isDouble) {
@@ -201,7 +205,7 @@ export function TrainTile({
 
   return (
     <div
-      className={`flex-shrink-0 rounded-sm shadow-sm border border-gray-300 transition-transform duration-300 relative ${disabled ? "cursor-default" : "cursor-pointer"}`}
+      className={`flex-shrink-0 rounded-sm shadow-sm border border-gray-300 transition-transform duration-300 relative flex items-center justify-center ${disabled ? "cursor-default" : "cursor-pointer"}`}
       onClick={handleClick}
       style={{
         width: "80px",
@@ -215,11 +219,34 @@ export function TrainTile({
       }}
     >
       <div
-        className={`w-full h-full rounded-sm transition-opacity duration-300 ${trainTrigger ? "opacity-100" : "opacity-0"} pointer-events-none`}
-        style={{
-          backgroundColor: trainTrigger ? trainColor : "transparent",
-        }}
-      ></div>
+        className={`absolute inset-0 transition-opacity duration-300 ${trainTrigger ? "opacity-100" : "opacity-0"} pointer-events-none flex items-center justify-center`}
+      >
+        <svg
+          width="100%"
+          height="100%"
+          viewBox="0 0 80 32"
+          preserveAspectRatio="none"
+        >
+          <line
+            x1="10"
+            y1="5"
+            x2="70"
+            y2="27"
+            stroke="black"
+            strokeWidth="4"
+            strokeLinecap="round"
+          />
+          <line
+            x1="70"
+            y1="5"
+            x2="10"
+            y2="27"
+            stroke="black"
+            strokeWidth="4"
+            strokeLinecap="round"
+          />
+        </svg>
+      </div>
       {children && <div style={combinedPosition}>{children}</div>}
     </div>
   );

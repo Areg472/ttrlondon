@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import {
   TrainTile,
   TrainTileCont,
@@ -9,136 +9,9 @@ import {
 import { City } from "./Components/City";
 import TicketCard from "./Components/TicketCard";
 import { TrainCards } from "./Components/Cards";
-
-const CITIES = [
-  {
-    name: "Regent's Park",
-    number: 5,
-    x: 230,
-    y: 50,
-    labelPosition: "top-left",
-  },
-  {
-    name: "Baker Street",
-    number: 5,
-    x: 50,
-    y: 170,
-    labelPosition: "top-right",
-  },
-  { name: "Hyde Park", number: 5, x: 78, y: 527, labelPosition: "bottom" },
-  {
-    name: "Buckingham Palace",
-    number: 2,
-    x: 203,
-    y: 570,
-    labelPosition: "bottom",
-  },
-  { name: "King's Cross", number: 5, x: 527, y: 47, labelPosition: "top" },
-  {
-    name: "British Museum",
-    number: 1,
-    x: 450,
-    y: 200,
-    labelPosition: "bottom-left",
-  },
-  {
-    name: "Piccadilly Circus",
-    number: 2,
-    x: 326,
-    y: 410,
-    labelPosition: "left",
-  },
-  { name: "Big Ben", number: 2, x: 413, y: 590, labelPosition: "bottom" },
-  {
-    name: "Elephant & Castle",
-    number: 3,
-    x: 780,
-    y: 630,
-    labelPosition: "bottom",
-  },
-  {
-    name: "Trafalgar Square",
-    number: 2,
-    x: 400,
-    y: 470,
-    labelPosition: "top-right",
-  },
-  { name: "Waterloo", number: 3, x: 605, y: 515, labelPosition: "right" },
-  {
-    name: "Globe Theatre",
-    number: 3,
-    x: 805,
-    y: 445,
-    labelPosition: "top-right",
-  },
-  { name: "St Paul's", number: 4, x: 805, y: 326, labelPosition: "top-right" },
-  {
-    name: "The Charterhouse",
-    number: 4,
-    x: 840,
-    y: 155,
-    labelPosition: "left",
-  },
-  { name: "Brick Lane", number: 4, x: 1130, y: 155, labelPosition: "top" },
-  {
-    name: "Tower of London",
-    number: 4,
-    x: 1130,
-    y: 440,
-    labelPosition: "top-left",
-  },
-  {
-    name: "Covent Garden",
-    number: 1,
-    x: 500,
-    y: 367,
-    labelPosition: "bottom-right",
-  },
-];
-
-export { CITIES };
-
-function shuffle(array) {
-  const next = [...array];
-  for (let i = next.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [next[i], next[j]] = [next[j], next[i]];
-  }
-  return next;
-}
-
-const TICKETS = shuffle([
-  { cityA: "British Museum", cityB: "Piccadilly Circus", points: 2 },
-  { cityA: "Baker Street", cityB: "Trafalgar Square", points: 5 },
-  { cityA: "Buckingham Palace", cityB: "Brick Lane", points: 9 },
-  { cityA: "Hyde Park", cityB: "Covent Garden", points: 3 },
-  { cityA: "Globe Theatre", cityB: "Brick Lane", points: 4 },
-  { cityA: "Regent's Park", cityB: "Elephant & Castle", points: 9 },
-  { cityA: "King's Cross", cityB: "Buckingham Palace", points: 6 },
-  { cityA: "Baker Street", cityB: "Tower of London", points: 11 },
-  { cityA: "Trafalgar Square", cityB: "St Paul's", points: 4 },
-  { cityA: "King's Cross", cityB: "Tower of London", points: 7 },
-  { cityA: "Buckingham Palace", cityB: "Elephant & Castle", points: 5 },
-  { cityA: "Covent Garden", cityB: "Tower of London", points: 6 },
-  { cityA: "Trafalgar Square", cityB: "Globe Theatre", points: 4 },
-  { cityA: "British Museum", cityB: "Waterloo", points: 4 },
-  { cityA: "Piccadilly Circus", cityB: "Waterloo", points: 3 },
-  { cityA: "Hyde Park", cityB: "St Paul's", points: 6 },
-  { cityA: "Regent's Park", cityB: "Piccadilly Circus", points: 5 },
-  { cityA: "Big Ben", cityB: "The Charterhouse", points: 5 },
-  { cityA: "Big Ben", cityB: "Tower of London", points: 6 },
-  { cityA: "British Museum", cityB: "St Paul's", points: 4 },
-]);
-export { TICKETS };
-
-export const TICKETS_PLAYER_EXAMPLE = TICKETS.slice(0, 4);
-
-const INITIAL_TRAIN_CARDS_DECK = shuffle([
-  ...Array.from({ length: 8 }, () => ({ rainbow: true })),
-  ...["orange", "yellow", "blue", "green", "black", "red"].flatMap((c) =>
-    Array.from({ length: 6 }, () => ({ color: c })),
-  ),
-]);
+import { shuffle } from "./utils/shuffle";
+import { CITIES, TICKETS, INITIAL_TRAIN_CARDS_DECK } from "./data/gameData";
+import { TicketSelection } from "./Components/TicketSelection";
 
 export default function Home() {
   const [playerHand, setPlayerHand] = useState({
@@ -151,10 +24,15 @@ export default function Home() {
     rainbow: 0,
   });
   const [score, setScore] = useState(0);
+  const [turn, setTurn] = useState(1);
+  const [cardsDrawn, setCardsDrawn] = useState(0);
   const [placedTiles, setPlacedTiles] = useState(0);
   const [discardPile, setDiscardPile] = useState([]);
   const [displayCards, setDisplayCards] = useState([]);
   const [trainDeck, setTrainDeck] = useState(INITIAL_TRAIN_CARDS_DECK);
+  const [ticketDeck, setTicketDeck] = useState(TICKETS);
+  const [playerTickets, setPlayerTickets] = useState([]);
+  const [drawingTickets, setDrawingTickets] = useState(null);
 
   const checkThreeRainbows = useCallback(
     (currentDisplay, currentDeck, currentDiscard) => {
@@ -190,6 +68,7 @@ export default function Home() {
   }
 
   const drawFromDisplay = (index) => {
+    if (cardsDrawn >= 2 || drawingTickets) return;
     const card = displayCards[index];
     if (!card) return;
 
@@ -213,9 +92,19 @@ export default function Home() {
     setDisplayCards(result.display);
     setTrainDeck(result.deck);
     setDiscardPile(result.discard);
+
+    const draws = card.rainbow ? 2 : 1;
+    const total = cardsDrawn + draws;
+    if (total >= 2) {
+      setTurn((t) => t + 1);
+      setCardsDrawn(0);
+    } else {
+      setCardsDrawn(total);
+    }
   };
 
   const drawFromDeck = () => {
+    if (cardsDrawn >= 2 || drawingTickets) return;
     let currentDeck = [...trainDeck],
       currentDiscard = [...discardPile];
     if (currentDeck.length === 0 && currentDiscard.length > 0) {
@@ -231,6 +120,13 @@ export default function Home() {
     }));
     setTrainDeck(currentDeck.slice(1));
     setDiscardPile(currentDiscard);
+    const total = cardsDrawn + 1;
+    if (total >= 2) {
+      setTurn((t) => t + 1);
+      setCardsDrawn(0);
+    } else {
+      setCardsDrawn(total);
+    }
   };
 
   const spendCards = (deduction) => {
@@ -247,12 +143,33 @@ export default function Home() {
     });
   };
 
+  const incrementTurn = () => {
+    setTurn((prev) => prev + 1);
+    setCardsDrawn(0);
+  };
+
   const addPoints = (points) => {
     setScore((prev) => prev + points);
   };
 
   const incrementPlaced = (n) => {
     setPlacedTiles((prev) => prev + (Number(n) || 0));
+  };
+
+  const drawTickets = () => {
+    if (cardsDrawn > 0 || drawingTickets) return;
+    if (ticketDeck.length === 0) return;
+    const drawn = ticketDeck.slice(0, 2);
+    setTicketDeck((prev) => prev.slice(2));
+    setDrawingTickets(drawn);
+  };
+
+  const selectTickets = (selectedIndices) => {
+    if (selectedIndices.length < 1) return;
+    const selected = selectedIndices.map((idx) => drawingTickets[idx]);
+    setPlayerTickets((prev) => [...prev, ...selected]);
+    setDrawingTickets(null);
+    incrementTurn();
   };
 
   const canPlaceMore = (needed) => {
@@ -277,6 +194,16 @@ export default function Home() {
             </span>
           </div>
         </div>
+        <div className="z-50 select-none">
+          <div className="backdrop-blur-sm border-2  border-zinc-800 rounded-2xl px-6 py-3 shadow-lg flex flex-col items-center">
+            <span className="text-[10px] uppercase font-black tracking-[0.2em] text-zinc-400 mb-0.5">
+              Turn
+            </span>
+            <span className="text-3xl  text-zinc-100 tabular-nums leading-none">
+              {turn}
+            </span>
+          </div>
+        </div>
       </header>
 
       <main className="w-full flex justify-center gap-8 p-4">
@@ -291,6 +218,8 @@ export default function Home() {
                   placedTiles,
                   canPlaceMore,
                   incrementPlaced,
+                  incrementTurn,
+                  cardsDrawn,
                 }}
               >
                 <div
@@ -480,6 +409,19 @@ export default function Home() {
           <p className="mt-10 text-lg text-zinc-500 dark:text-zinc-400">
             Player board
           </p>
+          {drawingTickets && (
+            <div className="bg-white dark:bg-zinc-900 p-8 rounded-3xl shadow-2xl border border-zinc-200 dark:border-zinc-800 flex flex-col items-center max-w-2xl w-full mt-10">
+              <h2 className="text-2xl font-bold mb-6 text-zinc-800 dark:text-zinc-100">
+                Select 1-2 Ticket Cards
+              </h2>
+              <div className="flex gap-6 mb-8 overflow-auto py-2">
+                <TicketSelection
+                  tickets={drawingTickets}
+                  onSelectionComplete={selectTickets}
+                />
+              </div>
+            </div>
+          )}
           <div className="flex flex-row mt-10" style={{ gap: "2.5rem" }}>
             <div className="gap-2 flex flex-col justify-center max-w-[600px]">
               <p className="text-sm text-zinc-500 dark:text-zinc-400 font-bold mb-2">
@@ -522,7 +464,7 @@ export default function Home() {
                 Ticket Cards
               </p>
               <div className="flex flex-col justify-center border-2 border-dashed">
-                {TICKETS_PLAYER_EXAMPLE.map((c, i) => (
+                {playerTickets.map((c, i) => (
                   <div
                     key={i}
                     className="transition-transform hover:-translate-y-1"
@@ -541,8 +483,11 @@ export default function Home() {
         </div>
 
         <div className="flex flex-col gap-12">
-          <div className="relative w-[210px] h-[120px] mt-10">
-            {TICKETS.map((t, i) => (
+          <div
+            className="relative w-[210px] h-[120px] mt-10 cursor-pointer"
+            onClick={drawTickets}
+          >
+            {ticketDeck.map((t, i) => (
               <div
                 key={i}
                 className="absolute transition-transform hover:-translate-y-1"
@@ -556,12 +501,12 @@ export default function Home() {
                   cityA={t.cityA}
                   cityB={t.cityB}
                   points={t.points}
-                  opposite={false}
+                  opposite={true}
                 />
               </div>
             ))}
             <div className="absolute -bottom-8 left-0 right-0 text-center text-xs font-bold uppercase tracking-wider text-zinc-500">
-              Ticket Deck ({TICKETS.length})
+              Ticket Deck ({ticketDeck.length})
             </div>
           </div>
 
