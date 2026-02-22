@@ -178,7 +178,7 @@ export function TrainTileCont({
 
     return React.cloneElement(first, {
       trainTrigger: currentTrigger,
-      trainColor: claimType === "ai" ? "red" : "yellow",
+      trainColor: claimType === "ai" ? "#E6E6FA" : "#008080",
       childPosition,
       index,
       disabled,

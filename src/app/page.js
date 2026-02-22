@@ -52,6 +52,7 @@ export default function Home() {
   const [aiTickets, setAiTickets] = useState([]);
   const [drawingTickets, setDrawingTickets] = useState(null);
   const [claimedRoutes, setClaimedRoutes] = useState({}); // { routeId_side: 'player' | 'ai' }
+  const [playerTurnActions, setPlayerTurnActions] = useState([]);
 
   const checkThreeRainbows = useCallback(
     (currentDisplay, currentDeck, currentDiscard) => {
@@ -87,9 +88,15 @@ export default function Home() {
   }
 
   const drawFromDisplay = (index) => {
-    if (cardsDrawn >= 2 || drawingTickets) return;
+    if (isAiTurn || cardsDrawn >= 2 || drawingTickets) return;
     const card = displayCards[index];
     if (!card) return;
+
+    logPlayerAction({
+      action: "draw_display",
+      color: card.rainbow ? "rainbow" : card.color,
+      index,
+    });
 
     const colorKey = card.rainbow ? "rainbow" : card.color;
     setPlayerHand((prev) => ({
@@ -122,7 +129,7 @@ export default function Home() {
   };
 
   const drawFromDeck = () => {
-    if (cardsDrawn >= 2 || drawingTickets) return;
+    if (isAiTurn || cardsDrawn >= 2 || drawingTickets) return;
     let currentDeck = [...trainDeck],
       currentDiscard = [...discardPile];
     if (currentDeck.length === 0 && currentDiscard.length > 0) {
@@ -131,6 +138,10 @@ export default function Home() {
     }
     if (currentDeck.length === 0) return;
     const card = currentDeck[0];
+    logPlayerAction({
+      action: "draw_deck",
+      color: card.rainbow ? "rainbow" : card.color,
+    });
     const colorKey = card.rainbow ? "rainbow" : card.color;
     setPlayerHand((prev) => ({
       ...prev,
@@ -167,6 +178,7 @@ export default function Home() {
     } else {
       setIsAiTurn(false);
       setTurn((prev) => prev + 1);
+      setPlayerTurnActions([]); // Reset history when starting a new player turn cycle
     }
     setCardsDrawn(0);
   };
@@ -188,7 +200,7 @@ export default function Home() {
   };
 
   const drawTickets = () => {
-    if (cardsDrawn > 0 || drawingTickets) return;
+    if (isAiTurn || cardsDrawn > 0 || drawingTickets) return;
     if (ticketDeck.length === 0) return;
     const drawn = ticketDeck.slice(0, 2);
     setTicketDeck((prev) => prev.slice(2));
@@ -198,6 +210,7 @@ export default function Home() {
   const selectTickets = (selectedIndices) => {
     if (selectedIndices.length < 1) return;
     const selected = selectedIndices.map((idx) => drawingTickets[idx]);
+    logPlayerAction({ action: "select_tickets", tickets: selected });
     setPlayerTickets((prev) => [...prev, ...selected]);
     setDrawingTickets(null);
     incrementTurn();
@@ -210,10 +223,17 @@ export default function Home() {
   };
 
   const claimRoute = (routeId, side, type) => {
+    if (type === "player") {
+      logPlayerAction({ action: "claim_route", routeId, side });
+    }
     setClaimedRoutes((prev) => ({
       ...prev,
       [`${routeId}_${side}`]: type,
     }));
+  };
+
+  const logPlayerAction = (action) => {
+    setPlayerTurnActions((prev) => [...prev, action]);
   };
 
   useEffect(() => {
@@ -232,6 +252,7 @@ export default function Home() {
       playerHandCount: Object.values(playerHand).reduce((a, b) => a + b, 0),
       playerTicketsCount: playerTickets.length,
       playerScore: score,
+      playerTurnActions,
       displayCards,
       trainDeckCount: trainDeck.length,
       ticketDeckCount: ticketDeck.length,
@@ -271,31 +292,18 @@ export default function Home() {
         }),
       });
 
-      const reader = response.body.getReader();
-      let content = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        content += new TextDecoder().decode(value);
-      }
+      const data = await response.json();
+      const content = data.text || "";
 
       console.log("AI Raw Response:", content);
       if (!content.trim()) {
-        console.error("AI returned an empty response");
+        if (data.error) {
+          console.error("AI Server Error:", data.error);
+        } else {
+          console.error("AI returned an empty response");
+        }
         incrementTurn();
         return;
-      }
-
-      // Check for server-side error object
-      if (content.startsWith('{"error":')) {
-        try {
-          const errorObj = JSON.parse(content);
-          console.error("AI Server Error:", errorObj.error);
-          incrementTurn();
-          return;
-        } catch (e) {
-          // Fall through to normal parsing
-        }
       }
 
       // Basic cleanup of potential markdown if the AI didn't follow instructions perfectly

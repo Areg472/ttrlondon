@@ -17,7 +17,7 @@ export function TicketSelection({ tickets, onSelectionComplete }) {
           <div
             key={i}
             onClick={() => toggle(i)}
-            className={`cursor-pointer transition-all p-2 rounded-xl border-4 ${selected.includes(i) ? "border-blue-500 scale-105 shadow-lg" : "border-transparent opacity-80"}`}
+            className={`cursor-pointer transition-all p-2 rounded-xl border-4 ${selected.includes(i) ? "border-blue-500 shadow-lg" : "border-transparent opacity-80"}`}
           >
             <TicketCard cityA={t.cityA} cityB={t.cityB} points={t.points} />
           </div>
