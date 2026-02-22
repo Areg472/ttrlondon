@@ -13,11 +13,6 @@ export function TicketCard({
   height = 120,
   opposite = false,
 }) {
-  const padding = 8;
-
-  const BOARD_WIDTH = 1200;
-  const BOARD_HEIGHT = 666.6;
-
   const getCityData = (name, manualPos) => {
     const city = CITIES.find((c) => c.name === name);
     const pos = manualPos || city || { x: 0, y: 0 };
