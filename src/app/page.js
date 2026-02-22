@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   TrainTile,
   TrainTileCont,
@@ -10,7 +10,12 @@ import { City } from "./Components/City";
 import TicketCard from "./Components/TicketCard";
 import { TrainCards } from "./Components/Cards";
 import { shuffle } from "./utils/shuffle";
-import { CITIES, TICKETS, INITIAL_TRAIN_CARDS_DECK } from "./data/gameData";
+import {
+  CITIES,
+  TICKETS,
+  INITIAL_TRAIN_CARDS_DECK,
+  ROUTES,
+} from "./data/gameData";
 import { TicketSelection } from "./Components/TicketSelection";
 
 export default function Home() {
@@ -23,16 +28,30 @@ export default function Home() {
     green: 0,
     rainbow: 0,
   });
+  const [aiHand, setAiHand] = useState({
+    orange: 0,
+    blue: 0,
+    black: 0,
+    red: 0,
+    yellow: 0,
+    green: 0,
+    rainbow: 0,
+  });
   const [score, setScore] = useState(0);
+  const [aiScore, setAiScore] = useState(0);
   const [turn, setTurn] = useState(1);
+  const [isAiTurn, setIsAiTurn] = useState(false);
   const [cardsDrawn, setCardsDrawn] = useState(0);
   const [placedTiles, setPlacedTiles] = useState(0);
+  const [aiPlacedTiles, setAiPlacedTiles] = useState(0);
   const [discardPile, setDiscardPile] = useState([]);
   const [displayCards, setDisplayCards] = useState([]);
   const [trainDeck, setTrainDeck] = useState(INITIAL_TRAIN_CARDS_DECK);
   const [ticketDeck, setTicketDeck] = useState(TICKETS);
   const [playerTickets, setPlayerTickets] = useState([]);
+  const [aiTickets, setAiTickets] = useState([]);
   const [drawingTickets, setDrawingTickets] = useState(null);
+  const [claimedRoutes, setClaimedRoutes] = useState({}); // { routeId_side: 'player' | 'ai' }
 
   const checkThreeRainbows = useCallback(
     (currentDisplay, currentDeck, currentDiscard) => {
@@ -96,8 +115,7 @@ export default function Home() {
     const draws = card.rainbow ? 2 : 1;
     const total = cardsDrawn + draws;
     if (total >= 2) {
-      setTurn((t) => t + 1);
-      setCardsDrawn(0);
+      incrementTurn();
     } else {
       setCardsDrawn(total);
     }
@@ -122,15 +140,15 @@ export default function Home() {
     setDiscardPile(currentDiscard);
     const total = cardsDrawn + 1;
     if (total >= 2) {
-      setTurn((t) => t + 1);
-      setCardsDrawn(0);
+      incrementTurn();
     } else {
       setCardsDrawn(total);
     }
   };
 
   const spendCards = (deduction) => {
-    setPlayerHand((prev) => {
+    const setHand = isAiTurn ? setAiHand : setPlayerHand;
+    setHand((prev) => {
       const next = { ...prev },
         spent = [];
       for (const [k, v] of Object.entries(deduction || {})) {
@@ -144,16 +162,29 @@ export default function Home() {
   };
 
   const incrementTurn = () => {
-    setTurn((prev) => prev + 1);
+    if (!isAiTurn) {
+      setIsAiTurn(true);
+    } else {
+      setIsAiTurn(false);
+      setTurn((prev) => prev + 1);
+    }
     setCardsDrawn(0);
   };
 
   const addPoints = (points) => {
-    setScore((prev) => prev + points);
+    if (isAiTurn) {
+      setAiScore((prev) => prev + points);
+    } else {
+      setScore((prev) => prev + points);
+    }
   };
 
   const incrementPlaced = (n) => {
-    setPlacedTiles((prev) => prev + (Number(n) || 0));
+    if (isAiTurn) {
+      setAiPlacedTiles((prev) => prev + (Number(n) || 0));
+    } else {
+      setPlacedTiles((prev) => prev + (Number(n) || 0));
+    }
   };
 
   const drawTickets = () => {
@@ -174,7 +205,283 @@ export default function Home() {
 
   const canPlaceMore = (needed) => {
     const n = Number(needed) || 0;
-    return placedTiles + n <= 17;
+    const currentPlaced = isAiTurn ? aiPlacedTiles : placedTiles;
+    return currentPlaced + n <= 17;
+  };
+
+  const claimRoute = (routeId, side, type) => {
+    setClaimedRoutes((prev) => ({
+      ...prev,
+      [`${routeId}_${side}`]: type,
+    }));
+  };
+
+  useEffect(() => {
+    if (isAiTurn) {
+      playAiTurn();
+    }
+  }, [isAiTurn]);
+
+  const playAiTurn = async () => {
+    // Collect game state
+    const gameState = {
+      aiHand,
+      aiTickets,
+      aiScore,
+      aiPlacedTiles,
+      playerHandCount: Object.values(playerHand).reduce((a, b) => a + b, 0),
+      playerTicketsCount: playerTickets.length,
+      playerScore: score,
+      displayCards,
+      trainDeckCount: trainDeck.length,
+      ticketDeckCount: ticketDeck.length,
+      claimedRoutes,
+      routes: ROUTES,
+      cities: CITIES,
+    };
+
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are an AI playing Ticket to Ride London. Respond ONLY with a valid JSON object representing your action. Do not include any other text or explanation.",
+            },
+            {
+              role: "user",
+              content: `Current Game State: ${JSON.stringify(gameState)}. 
+              Available actions: 
+              1. { "action": "draw_display", "index": number } - draw a card from display (index 0-4). If you draw a rainbow, turn ends. Otherwise you draw twice.
+              2. { "action": "draw_deck" } - draw a card from deck. You draw twice unless it's the last card.
+              3. { "action": "draw_tickets" } - draw 2 tickets, then you must choose at least 1. (This will trigger a second step)
+              4. { "action": "place_tiles", "routeId": number, "side": "single"|"even"|"odd", "color": string } - place tiles on a route.
+              
+              Important rules:
+              - To claim a route, you must have enough cards of that color (or rainbows).
+              - If you have 0 cards drawn, you can draw from display, draw from deck, or draw tickets.
+              - If you have 1 card drawn, you can only draw from display (non-rainbow) or draw from deck.
+              - If you have 0 cards drawn, you can also place tiles.
+              
+              Choose one action based on the state.`,
+            },
+          ],
+        }),
+      });
+
+      const reader = response.body.getReader();
+      let content = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        content += new TextDecoder().decode(value);
+      }
+
+      console.log("AI Raw Response:", content);
+      if (!content.trim()) {
+        console.error("AI returned an empty response");
+        incrementTurn();
+        return;
+      }
+
+      // Check for server-side error object
+      if (content.startsWith('{"error":')) {
+        try {
+          const errorObj = JSON.parse(content);
+          console.error("AI Server Error:", errorObj.error);
+          incrementTurn();
+          return;
+        } catch (e) {
+          // Fall through to normal parsing
+        }
+      }
+
+      // Basic cleanup of potential markdown if the AI didn't follow instructions perfectly
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          const action = JSON.parse(jsonMatch[0]);
+          if (action.error) {
+            console.error("AI returned an error:", action.error);
+            incrementTurn();
+            return;
+          }
+          executeAiAction(action);
+        } catch (parseError) {
+          console.error("AI JSON Parse Error:", parseError, content);
+          incrementTurn();
+        }
+      } else {
+        console.error("Failed to parse AI action (no JSON found):", content);
+        incrementTurn();
+      }
+    } catch (error) {
+      console.error("AI Turn Error:", error);
+      incrementTurn();
+    }
+  };
+
+  const executeAiAction = (action) => {
+    console.log("AI Action:", action);
+    switch (action.action) {
+      case "draw_display":
+        drawAiFromDisplay(action.index);
+        break;
+      case "draw_deck":
+        drawAiFromDeck();
+        break;
+      case "draw_tickets":
+        drawAiTickets();
+        break;
+      case "place_tiles":
+        executeAiPlaceTiles(action.routeId, action.side, action.color);
+        break;
+      default:
+        incrementTurn();
+    }
+  };
+
+  const drawAiFromDisplay = (index) => {
+    const card = displayCards[index];
+    if (!card) {
+      incrementTurn();
+      return;
+    }
+
+    const colorKey = card.rainbow ? "rainbow" : card.color;
+    setAiHand((prev) => ({
+      ...prev,
+      [colorKey]: (prev[colorKey] ?? 0) + 1,
+    }));
+
+    let nextDisplay = [...displayCards],
+      nextDeck = [...trainDeck],
+      nextDiscard = [...discardPile];
+    if (nextDeck.length > 0) {
+      nextDisplay[index] = nextDeck[0];
+      nextDeck = nextDeck.slice(1);
+    } else {
+      nextDisplay.splice(index, 1);
+    }
+
+    const result = checkThreeRainbows(nextDisplay, nextDeck, nextDiscard);
+    setDisplayCards(result.display);
+    setTrainDeck(result.deck);
+    setDiscardPile(result.discard);
+
+    const draws = card.rainbow ? 2 : 1;
+    const total = cardsDrawn + draws;
+    if (total >= 2) {
+      incrementTurn();
+    } else {
+      setCardsDrawn(total);
+      // AI gets another draw, call AI again or just draw another one randomly?
+      // For simplicity, let's call AI again if they need to draw another card
+      playAiTurn();
+    }
+  };
+
+  const drawAiFromDeck = () => {
+    let currentDeck = [...trainDeck],
+      currentDiscard = [...discardPile];
+    if (currentDeck.length === 0 && currentDiscard.length > 0) {
+      currentDeck = shuffle(currentDiscard);
+      currentDiscard = [];
+    }
+    if (currentDeck.length === 0) {
+      incrementTurn();
+      return;
+    }
+    const card = currentDeck[0];
+    const colorKey = card.rainbow ? "rainbow" : card.color;
+    setAiHand((prev) => ({
+      ...prev,
+      [colorKey]: (prev[colorKey] ?? 0) + 1,
+    }));
+    setTrainDeck(currentDeck.slice(1));
+    setDiscardPile(currentDiscard);
+    const total = cardsDrawn + 1;
+    if (total >= 2) {
+      incrementTurn();
+    } else {
+      setCardsDrawn(total);
+      playAiTurn();
+    }
+  };
+
+  const drawAiTickets = () => {
+    if (ticketDeck.length === 0) {
+      incrementTurn();
+      return;
+    }
+    const drawn = ticketDeck.slice(0, 2);
+    setTicketDeck((prev) => prev.slice(2));
+    // AI chooses at least 1 ticket. Simple AI: take both.
+    setAiTickets((prev) => [...prev, ...drawn]);
+    incrementTurn();
+  };
+
+  const executeAiPlaceTiles = (routeId, side, color) => {
+    const route = ROUTES.find((r) => r.id === routeId);
+    if (!route) {
+      incrementTurn();
+      return;
+    }
+
+    const length = route.trainCount;
+    const wilds = aiHand.rainbow;
+    const have = aiHand[color] || 0;
+
+    let deduction = null;
+    if (color === "gray") {
+      const baseColors = ["orange", "yellow", "blue", "green", "black", "red"];
+      let best = null;
+      for (const c of baseColors) {
+        const cHave = aiHand[c] || 0;
+        const useColor = Math.min(cHave, length);
+        const needWild = length - useColor;
+        if (needWild <= wilds) {
+          if (
+            !best ||
+            needWild < best.needWild ||
+            (needWild === best.needWild && useColor > best.useColor)
+          ) {
+            best = { color: c, useColor, needWild };
+          }
+        }
+      }
+      if (!best && wilds >= length) {
+        best = { color: null, useColor: 0, needWild: length };
+      }
+      if (best) {
+        deduction = {};
+        if (best.color) deduction[best.color] = best.useColor;
+        if (best.needWild) deduction["rainbow"] = best.needWild;
+      }
+    } else {
+      const useColor = Math.min(have, length);
+      const needWild = length - useColor;
+      if (needWild <= wilds) {
+        deduction = {};
+        if (useColor) deduction[color] = useColor;
+        if (needWild) deduction["rainbow"] = needWild;
+      }
+    }
+
+    if (deduction) {
+      spendCards(deduction);
+      const points = { 1: 1, 2: 2, 3: 4, 4: 7 }[length] || 0;
+      addPoints(points);
+      incrementPlaced(length);
+      claimRoute(routeId, side, "ai");
+      incrementTurn();
+    } else {
+      // AI made an invalid move or doesn't have cards
+      console.log("AI couldn't place tiles, drawing from deck instead");
+      drawAiFromDeck();
+    }
   };
 
   return (
@@ -202,9 +509,39 @@ export default function Home() {
             <span className="text-3xl  text-zinc-100 tabular-nums leading-none">
               {turn}
             </span>
+            {isAiTurn && (
+              <span className="text-[10px] uppercase font-black text-red-500 mt-1">
+                AI Thinking...
+              </span>
+            )}
           </div>
         </div>
       </header>
+
+      <div className="flex gap-4 mb-4">
+        <div className="bg-zinc-800 text-white p-4 rounded-xl shadow-lg flex gap-8">
+          <div className="flex flex-col items-center">
+            <span className="text-[10px] uppercase font-bold text-zinc-400">
+              AI Score
+            </span>
+            <span className="text-2xl font-black">{aiScore}</span>
+          </div>
+          <div className="flex flex-col items-center">
+            <span className="text-[10px] uppercase font-bold text-zinc-400">
+              AI Cards
+            </span>
+            <span className="text-2xl font-black">
+              {Object.values(aiHand).reduce((a, b) => a + b, 0)}
+            </span>
+          </div>
+          <div className="flex flex-col items-center">
+            <span className="text-[10px] uppercase font-bold text-zinc-400">
+              AI Tickets
+            </span>
+            <span className="text-2xl font-black">{aiTickets.length}</span>
+          </div>
+        </div>
+      </div>
 
       <main className="w-full flex justify-center gap-8 p-4">
         <div className="flex flex-col items-center">
@@ -220,6 +557,9 @@ export default function Home() {
                   incrementPlaced,
                   incrementTurn,
                   cardsDrawn,
+                  isAiTurn,
+                  claimedRoutes,
+                  claimRoute,
                 }}
               >
                 <div
@@ -231,171 +571,24 @@ export default function Home() {
                   }}
                 ></div>
 
-                <TrainTileCont trainCount={2} x={80} y={150}>
-                  <TrainTile color="blue" trainColor="yellow" angle={330} />
-                  <TrainTile color="blue" trainColor="yellow" angle={0} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={4} x={114} y={170}>
-                  <TrainTile color="orange" trainColor="yellow" angle={5} />
-                  <TrainTile color="orange" trainColor="yellow" angle={0} />
-                  <TrainTile color="orange" trainColor="yellow" angle={0} />
-                  <TrainTile color="orange" trainColor="yellow" angle={0} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={3} x={280} y={50}>
-                  <TrainTile color="green" trainColor="yellow" angle={0} />
-                  <TrainTile color="green" trainColor="yellow" angle={0} />
-                  <TrainTile color="green" trainColor="yellow" angle={0} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={3} x={580} y={50}>
-                  <TrainTile color="red" trainColor="yellow" angle={0} />
-                  <TrainTile color="red" trainColor="yellow" angle={12} />
-                  <TrainTile color="red" trainColor="yellow" angle={12} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={3} x={880} y={155}>
-                  <TrainTile color="green" trainColor="yellow" angle={355} />
-                  <TrainTile color="green" trainColor="yellow" angle={5} />
-                  <TrainTile color="green" trainColor="yellow" angle={5} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={3} x={880} y={300}>
-                  <TrainTile color="orange" trainColor="yellow" angle={334} />
-                  <TrainTile color="orange" trainColor="yellow" angle={0} />
-                  <TrainTile color="orange" trainColor="yellow" angle={0} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={3} x={860} y={445}>
-                  <TrainTile color="gray" trainColor="yellow" angle={30} />
-                  <TrainTile color="gray" trainColor="yellow" angle={-30} />
-                  <TrainTile color="gray" trainColor="yellow" angle={-18} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={4} x={840} y={625}>
-                  <TrainTile color="black" trainColor="yellow" angle={-8} />
-                  <TrainTile color="black" trainColor="yellow" angle={-13} />
-                  <TrainTile color="black" trainColor="yellow" angle={-13} />
-                  <TrainTile color="black" trainColor="yellow" angle={-13} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={3} x={880} y={320} isDouble={true}>
-                  <TrainTile color="yellow" trainColor="blue" angle={20} />
-                  <TrainTile color="red" trainColor="blue" angle={0} />
-                  <TrainTile color="yellow" trainColor="blue" angle={0} />
-                  <TrainTile color="red" trainColor="blue" angle={0} />
-                  <TrainTile color="yellow" trainColor="blue" angle={0} />
-                  <TrainTile color="red" trainColor="blue" angle={0} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={3} x={1145} y={180}>
-                  <TrainTile color="blue" trainColor="yellow" angle={90} />
-                  <TrainTile color="blue" trainColor="yellow" angle={0} />
-                  <TrainTile color="blue" trainColor="yellow" angle={0} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={3} x={260} y={70}>
-                  <TrainTile color="yellow" trainColor="red" angle={14} />
-                  <TrainTile color="yellow" trainColor="red" angle={10} />
-                  <TrainTile color="yellow" trainColor="red" angle={10} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={4} x={65} y={190}>
-                  <TrainTile color="black" trainColor="yellow" angle={90} />
-                  <TrainTile color="black" trainColor="yellow" angle={0} />
-                  <TrainTile color="black" trainColor="yellow" angle={355} />
-                  <TrainTile color="black" trainColor="yellow" angle={355} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={4} x={90} y={190}>
-                  <TrainTile color="gray" trainColor="yellow" angle={50} />
-                  <TrainTile color="gray" trainColor="yellow" angle={0} />
-                  <TrainTile color="gray" trainColor="yellow" angle={355} />
-                  <TrainTile color="gray" trainColor="yellow" angle={355} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={2} x={120} y={470} isDouble={true}>
-                  <TrainTile color="gray" trainColor="yellow" angle={345} />
-                  <TrainTile color="gray" trainColor="yellow" angle={0} />
-                  <TrainTile color="gray" trainColor="yellow" angle={0} />
-                  <TrainTile color="gray" trainColor="yellow" angle={0} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={1} x={120} y={527} isDouble={true}>
-                  <TrainTile color="yellow" trainColor="red" angle={15} />
-                  <TrainTile color="orange" trainColor="red" angle={0} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={2} x={345} y={390}>
-                  <TrainTile color="gray" trainColor="red" angle={290} />
-                  <TrainTile color="gray" trainColor="red" angle={20} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={1} x={390} y={360} isDouble={true}>
-                  <TrainTile color="green" trainColor="red" angle={355} />
-                  <TrainTile color="yellow" trainColor="red" angle={0} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={2} x={240} y={560}>
-                  <TrainTile color="red" trainColor="yellow" angle={310} />
-                  <TrainTile color="red" trainColor="yellow" angle={0} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={2} x={250} y={580}>
-                  <TrainTile color="green" trainColor="yellow" angle={7} />
-                  <TrainTile color="green" trainColor="yellow" angle={355} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={2} x={260} y={570}>
-                  <TrainTile color="gray" trainColor="yellow" angle={325} />
-                  <TrainTile color="gray" trainColor="yellow" angle={0} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={1} x={500} y={320} isDouble={true}>
-                  <TrainTile color="gray" trainColor="yellow" angle={245} />
-                  <TrainTile color="gray" trainColor="yellow" angle={0} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={2} x={440} y={500}>
-                  <TrainTile color="gray" trainColor="yellow" angle={5} />
-                  <TrainTile color="gray" trainColor="yellow" angle={0} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={2} x={640} y={525}>
-                  <TrainTile color="orange" trainColor="yellow" angle={40} />
-                  <TrainTile color="orange" trainColor="yellow" angle={0} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={2} x={800} y={620}>
-                  <TrainTile color="green" trainColor="yellow" angle={278} />
-                  <TrainTile color="green" trainColor="yellow" angle={0} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={3} x={455} y={610}>
-                  <TrainTile color="yellow" trainColor="red" angle={5} />
-                  <TrainTile color="yellow" trainColor="red" angle={0} />
-                  <TrainTile color="yellow" trainColor="red" angle={0} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={2} x={465} y={580}>
-                  <TrainTile color="blue" trainColor="yellow" angle={345} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={1} x={415} y={490}>
-                  <TrainTile color="gray" trainColor="yellow" angle={80} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={1} x={360} y={400} isDouble={true}>
-                  <TrainTile color="blue" trainColor="yellow" angle={40} />
-                  <TrainTile color="orange" trainColor="yellow" angle={0} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={1} x={420} y={450} isDouble={true}>
-                  <TrainTile color="black" trainColor="yellow" angle={320} />
-                  <TrainTile color="red" trainColor="yellow" angle={0} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={4} x={490} y={200}>
-                  <TrainTile color="black" trainColor="yellow" angle={290} />
-                  <TrainTile color="black" trainColor="yellow" angle={0} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={4} x={650} y={500}>
-                  <TrainTile color="red" trainColor="yellow" angle={330} />
-                  <TrainTile color="red" trainColor="yellow" angle={30} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={3} x={550} y={350} isDouble={true}>
-                  <TrainTile color="gray" trainColor="yellow" angle={353} />
-                  <TrainTile color="gray" trainColor="yellow" angle={0} />
-                  <TrainTile color="gray" trainColor="yellow" angle={0} />
-                  <TrainTile color="gray" trainColor="yellow" angle={0} />
-                  <TrainTile color="gray" trainColor="yellow" angle={0} />
-                  <TrainTile color="gray" trainColor="yellow" angle={0} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={4} x={520} y={200}>
-                  <TrainTile color="blue" trainColor="yellow" angle={0} />
-                  <TrainTile color="blue" trainColor="yellow" angle={357} />
-                  <TrainTile color="blue" trainColor="yellow" angle={354} />
-                  <TrainTile color="blue" trainColor="yellow" angle={351} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={1} x={810} y={430} isDouble={true}>
-                  <TrainTile color="gray" trainColor="yellow" angle={270} />
-                  <TrainTile color="gray" trainColor="yellow" angle={0} />
-                </TrainTileCont>
-                <TrainTileCont trainCount={1} x={830} y={275}>
-                  <TrainTile color="black" trainColor="yellow" angle={285} />
-                </TrainTileCont>
+                {ROUTES.map((route) => (
+                  <TrainTileCont
+                    key={route.id}
+                    routeId={route.id}
+                    trainCount={route.trainCount}
+                    x={route.x}
+                    y={route.y}
+                    isDouble={route.isDouble}
+                  >
+                    {route.tiles.map((tile, i) => (
+                      <TrainTile
+                        key={i}
+                        color={tile.color}
+                        angle={tile.angle}
+                      />
+                    ))}
+                  </TrainTileCont>
+                ))}
 
                 {CITIES.map((city) => (
                   <City key={city.name} {...city} />

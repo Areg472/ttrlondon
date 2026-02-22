@@ -17,9 +17,19 @@ export const PlayerHandContext = React.createContext({
   incrementPlaced: () => {},
   incrementTurn: () => {},
   cardsDrawn: 0,
+  isAiTurn: false,
+  claimedRoutes: {},
+  claimRoute: () => {},
 });
 
-export function TrainTileCont({ children, trainCount, x, y, isDouble }) {
+export function TrainTileCont({
+  children,
+  trainCount,
+  x,
+  y,
+  isDouble,
+  routeId,
+}) {
   const [trainTrigger, setTrainTrigger] = useState(false);
   const [trainTriggerDouble, setTrainTriggerDouble] = useState(false);
   const [claimedSide, setClaimedSide] = useState(null);
@@ -27,7 +37,9 @@ export function TrainTileCont({ children, trainCount, x, y, isDouble }) {
 
   const baseColors = ["orange", "yellow", "blue", "green", "black", "red"];
 
-  const canClaimWithColor = (routeColor) => {
+  const canClaimWithColor = (routeColor, side) => {
+    if (playerHand?.claimedRoutes?.[`${routeId}_${side}`]) return false;
+    if (playerHand?.isAiTurn) return false;
     if (playerHand?.cardsDrawn > 0) return false;
     const length = Number(trainCount) || 0,
       wilds = playerHand?.rainbow ?? 0;
@@ -105,12 +117,27 @@ export function TrainTileCont({ children, trainCount, x, y, isDouble }) {
     };
     if (isDouble) {
       const side = index % 2 === 0 ? "even" : "odd";
+      if (playerHand?.claimedRoutes?.[`${routeId}_${side}`]) return;
       if (claimedSide && claimedSide !== side) return;
       if (!claimedSide && !trySpend()) return;
-      if (!claimedSide) setClaimedSide(side);
+      if (!claimedSide) {
+        setClaimedSide(side);
+        if (playerHand?.claimRoute)
+          playerHand.claimRoute(routeId, side, "player");
+      }
       side === "even" ? setTrainTrigger(true) : setTrainTriggerDouble(true);
-    } else if (!trainTrigger && trySpend()) {
+    } else {
+      if (
+        playerHand?.claimedRoutes?.[`${routeId}_single`] ||
+        playerHand?.claimedRoutes?.[`${routeId}_even`] ||
+        playerHand?.claimedRoutes?.[`${routeId}_odd`]
+      )
+        return;
+      if (trainTrigger) return;
+      if (!trySpend()) return;
       setTrainTrigger(true);
+      if (playerHand?.claimRoute)
+        playerHand.claimRoute(routeId, "single", "player");
     }
   };
 
@@ -128,7 +155,8 @@ export function TrainTileCont({ children, trainCount, x, y, isDouble }) {
       }
     }
 
-    const side = index % 2 === 0 ? "even" : "odd";
+    const side = isDouble ? (index % 2 === 0 ? "even" : "odd") : "single";
+    const claimType = playerHand?.claimedRoutes?.[`${routeId}_${side}`];
 
     let currentTrigger = isDouble
       ? side === "even"
@@ -136,11 +164,13 @@ export function TrainTileCont({ children, trainCount, x, y, isDouble }) {
         : trainTriggerDouble
       : trainTrigger;
 
+    if (claimType) currentTrigger = true;
+
     const tileColor = first.props?.color;
-    let disabled = !canClaimWithColor(tileColor);
+    let disabled = !canClaimWithColor(tileColor, side);
     if (isDouble && claimedSide && claimedSide !== side) {
       disabled = true;
-      currentTrigger = false;
+      if (!claimType) currentTrigger = false;
     }
     if (isDouble && claimedSide && claimedSide === side) {
       currentTrigger = true;
@@ -148,6 +178,7 @@ export function TrainTileCont({ children, trainCount, x, y, isDouble }) {
 
     return React.cloneElement(first, {
       trainTrigger: currentTrigger,
+      trainColor: claimType === "ai" ? "red" : "yellow",
       childPosition,
       index,
       disabled,
@@ -232,7 +263,7 @@ export function TrainTile({
             y1="5"
             x2="70"
             y2="27"
-            stroke="black"
+            stroke={trainColor || "black"}
             strokeWidth="4"
             strokeLinecap="round"
           />
@@ -241,7 +272,7 @@ export function TrainTile({
             y1="5"
             x2="10"
             y2="27"
-            stroke="black"
+            stroke={trainColor || "black"}
             strokeWidth="4"
             strokeLinecap="round"
           />
