@@ -449,19 +449,6 @@ export default function Home() {
     setPlayerTurnActions((prev) => [...prev, action]);
   };
 
-  useEffect(() => {
-    if (gameOver) return;
-    if (isAiTurn) {
-      playAiTurn();
-    }
-  }, [isAiTurn, gameOver]);
-
-  // When routes are claimed or tickets change, check for new completions
-  useEffect(() => {
-    awardCompletedTickets("player");
-    awardCompletedTickets("ai");
-  }, [claimedRoutes, playerTickets, aiTickets]);
-
   const playAiTurn = async () => {
     // Collect game state
     const gameState = {
@@ -571,6 +558,13 @@ export default function Home() {
     }
   };
 
+  useEffect(() => {
+    if (gameOver) return;
+    if (isAiTurn) {
+      playAiTurn();
+    }
+  }, [isAiTurn, gameOver]);
+
   const drawAiFromDisplay = (index) => {
     if (gameOver || !isAiTurn || cardsDrawn >= 2) {
       incrementTurn();
@@ -609,7 +603,6 @@ export default function Home() {
       incrementTurn();
     } else {
       setCardsDrawn(total);
-      // AI gets another draw, call AI again
       playAiTurn();
     }
   };
@@ -761,11 +754,11 @@ export default function Home() {
 
             <div className="text-2xl font-bold mb-8">
               {score > aiScore ? (
-                <span className="text-green-500">🎉 Player Wins!</span>
+                <span className="text-green-500">Player Wins!</span>
               ) : score < aiScore ? (
-                <span className="text-red-500">🤖 AI Wins!</span>
+                <span className="text-red-500">AI Wins!</span>
               ) : (
-                <span className="text-blue-500">🤝 It's a Tie!</span>
+                <span className="text-blue-500">It&#39;s a Tie!</span>
               )}
             </div>
 
@@ -819,19 +812,19 @@ export default function Home() {
         <div className="bg-zinc-800 text-white p-4 rounded-xl shadow-lg flex gap-8">
           <div className="flex flex-col items-center">
             <span className="text-[10px] uppercase font-bold text-zinc-400">
-              AI Score
+              AI Points
             </span>
             <span className="text-2xl font-black">{aiScore}</span>
           </div>
           <div className="flex flex-col items-center">
             <span className="text-[10px] uppercase font-bold text-zinc-400">
-              AI Tiles Left
+              AI Train Pieces
             </span>
             <span className="text-2xl font-black">{17 - aiPlacedTiles}</span>
           </div>
           <div className="flex flex-col items-center">
             <span className="text-[10px] uppercase font-bold text-zinc-400">
-              AI Cards
+              AI Train Cards
             </span>
             <span className="text-2xl font-black">
               {Object.values(aiHand).reduce((a, b) => a + b, 0)}
@@ -903,7 +896,7 @@ export default function Home() {
             Scroll to explore the map
           </p>
           <p className="mt-10 text-lg text-zinc-500 dark:text-zinc-400">
-            Player board ({17 - placedTiles} tiles left)
+            Player board ({17 - placedTiles} train pieces left)
           </p>
           {drawingTickets && (
             <div className="bg-white dark:bg-zinc-900 p-8 rounded-3xl shadow-2xl border border-zinc-200 dark:border-zinc-800 flex flex-col items-center max-w-2xl w-full mt-10">
