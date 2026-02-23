@@ -53,6 +53,12 @@ export default function Home() {
   const [drawingTickets, setDrawingTickets] = useState(null);
   const [claimedRoutes, setClaimedRoutes] = useState({}); // { routeId_side: 'player' | 'ai' }
   const [playerTurnActions, setPlayerTurnActions] = useState([]);
+  // Track completed tickets (hidden) to avoid double-scoring
+  const [playerCompletedTickets, setPlayerCompletedTickets] = useState({}); // { "cityA|cityB": true }
+  const [aiCompletedTickets, setAiCompletedTickets] = useState({}); // { "cityA|cityB": true }
+  const [gameOver, setGameOver] = useState(false);
+  const [lastRoundTriggered, setLastRoundTriggered] = useState(false);
+  const [finalTurnsLeft, setFinalTurnsLeft] = useState(-1); // -1: not started, 0: game over, 1,2: countdown
 
   const checkThreeRainbows = useCallback(
     (currentDisplay, currentDeck, currentDiscard) => {
@@ -76,19 +82,62 @@ export default function Home() {
 
   const [hasInitialized, setHasInitialized] = useState(false);
   if (!hasInitialized) {
+    // 1. Setup Train Card display and deck
+    const initialTrainDeck = [...INITIAL_TRAIN_CARDS_DECK];
     const { display, deck, discard } = checkThreeRainbows(
-      INITIAL_TRAIN_CARDS_DECK.slice(0, 5),
-      INITIAL_TRAIN_CARDS_DECK.slice(5),
+      initialTrainDeck.slice(0, 5),
+      initialTrainDeck.slice(5),
       [],
     );
+
+    // 2. Give 2 tickets for Player and 2 for AI (drawn from deck)
+    const initialTicketDeck = [...TICKETS];
+    const playerInitialTickets = initialTicketDeck.slice(0, 2);
+    const aiInitialTickets = initialTicketDeck.slice(2, 4);
+    const remainingTicketDeck = initialTicketDeck.slice(4);
+
+    // 3. Give 2 train cards to player and AI (after tickets are drawn)
+    const playerInitialTrain = deck.slice(0, 2);
+    const aiInitialTrain = deck.slice(2, 4);
+    const remainingDeck = deck.slice(4);
+
+    const initialPlayerHand = {
+      orange: 0,
+      blue: 0,
+      black: 0,
+      red: 0,
+      yellow: 0,
+      green: 0,
+      rainbow: 0,
+    };
+    const initialAiHand = { ...initialPlayerHand };
+
+    playerInitialTrain.forEach((c) => {
+      const key = c.rainbow ? "rainbow" : c.color;
+      initialPlayerHand[key]++;
+    });
+    aiInitialTrain.forEach((c) => {
+      const key = c.rainbow ? "rainbow" : c.color;
+      initialAiHand[key]++;
+    });
+
+    // Apply states
     setDisplayCards(display);
-    setTrainDeck(deck);
+    setTrainDeck(remainingDeck);
     setDiscardPile(discard);
+    setPlayerHand(initialPlayerHand);
+    setAiHand(initialAiHand);
+
+    // Initial choices: player picks from their 2 tickets, AI keeps both
+    setDrawingTickets(playerInitialTickets);
+    setAiTickets(aiInitialTickets);
+    setTicketDeck(remainingTicketDeck);
+
     setHasInitialized(true);
   }
 
   const drawFromDisplay = (index) => {
-    if (isAiTurn || cardsDrawn >= 2 || drawingTickets) return;
+    if (gameOver || isAiTurn || cardsDrawn >= 2 || drawingTickets) return;
     const card = displayCards[index];
     if (!card) return;
 
@@ -129,7 +178,7 @@ export default function Home() {
   };
 
   const drawFromDeck = () => {
-    if (isAiTurn || cardsDrawn >= 2 || drawingTickets) return;
+    if (gameOver || isAiTurn || cardsDrawn >= 2 || drawingTickets) return;
     let currentDeck = [...trainDeck],
       currentDiscard = [...discardPile];
     if (currentDeck.length === 0 && currentDiscard.length > 0) {
@@ -173,6 +222,16 @@ export default function Home() {
   };
 
   const incrementTurn = () => {
+    if (lastRoundTriggered) {
+      if (finalTurnsLeft > 0) {
+        setFinalTurnsLeft((prev) => prev - 1);
+      }
+      if (finalTurnsLeft === 1) {
+        setGameOver(true);
+        return;
+      }
+    }
+
     if (!isAiTurn) {
       setIsAiTurn(true);
     } else {
@@ -192,15 +251,29 @@ export default function Home() {
   };
 
   const incrementPlaced = (n) => {
+    let nextPlaced;
     if (isAiTurn) {
-      setAiPlacedTiles((prev) => prev + (Number(n) || 0));
+      setAiPlacedTiles((prev) => {
+        nextPlaced = prev + (Number(n) || 0);
+        return nextPlaced;
+      });
     } else {
-      setPlacedTiles((prev) => prev + (Number(n) || 0));
+      setPlacedTiles((prev) => {
+        nextPlaced = prev + (Number(n) || 0);
+        return nextPlaced;
+      });
+    }
+    // Check for game end trigger: 17 total tiles, so 15 or more placed means 2 or less left
+    if (nextPlaced >= 15 && !lastRoundTriggered) {
+      setLastRoundTriggered(true);
+      setFinalTurnsLeft(2); // One more turn for EACH player (including the current one's completion?)
+      // Actually, "Afterwards the player and the AI do one more turn"
+      // If Player triggers it, AI does one more, then Player does one more. Total 2 turns after the current one.
     }
   };
 
   const drawTickets = () => {
-    if (isAiTurn || cardsDrawn > 0 || drawingTickets) return;
+    if (gameOver || isAiTurn || cardsDrawn > 0 || drawingTickets) return;
     if (ticketDeck.length === 0) return;
     const drawn = ticketDeck.slice(0, 2);
     setTicketDeck((prev) => prev.slice(2));
@@ -213,7 +286,7 @@ export default function Home() {
     logPlayerAction({ action: "select_tickets", tickets: selected });
     setPlayerTickets((prev) => [...prev, ...selected]);
     setDrawingTickets(null);
-    incrementTurn();
+    if (!gameOver) incrementTurn();
   };
 
   const canPlaceMore = (needed) => {
@@ -232,15 +305,162 @@ export default function Home() {
     }));
   };
 
+  // --- Ticket connectivity and scoring helpers ---
+  const makeTicketKey = (t) => `${t.cityA}|${t.cityB}`;
+
+  // Cache for dynamically inferred endpoints by geometry to avoid recompute every render
+  const routeConnectCache = { cache: {} };
+
+  const inferRouteConnectsByGeometry = (route) => {
+    if (!route) return null;
+    const cached = routeConnectCache.cache[route.id];
+    if (cached) return cached;
+    // Base point is the container's left/top; approximate tile length = 80 px
+    const start = { x: route.x, y: route.y };
+    let dx = 0;
+    let dy = 0;
+    (route.tiles || []).forEach((tile) => {
+      const ang = Number(tile.angle) || 0;
+      const rad = (ang * Math.PI) / 180;
+      dx += 80 * Math.cos(rad);
+      dy += 80 * Math.sin(rad);
+    });
+    const end = { x: start.x + dx, y: start.y + dy };
+
+    const nearestCityTo = (pt) => {
+      let best = null;
+      for (const c of CITIES) {
+        const ddx = (c.x ?? 0) - pt.x;
+        const ddy = (c.y ?? 0) - pt.y;
+        const d2 = ddx * ddx + ddy * ddy;
+        if (!best || d2 < best.d2) best = { name: c.name, d2 };
+      }
+      return best ? best.name : null;
+    };
+
+    const a = nearestCityTo(start);
+    let b = nearestCityTo(end);
+    if (b === a) {
+      // pick the next nearest different city to end if same
+      let bestAlt = null;
+      for (const c of CITIES) {
+        if (c.name === a) continue;
+        const ddx = (c.x ?? 0) - end.x;
+        const ddy = (c.y ?? 0) - end.y;
+        const d2 = ddx * ddx + ddy * ddy;
+        if (!bestAlt || d2 < bestAlt.d2) bestAlt = { name: c.name, d2 };
+      }
+      if (bestAlt) b = bestAlt.name;
+    }
+
+    const connects = a && b ? [a, b] : null;
+    if (connects) routeConnectCache.cache[route.id] = connects;
+    return connects;
+  };
+
+  const getClaimedEdges = (claimer) => {
+    // claimer: 'player' | 'ai'
+    const edges = [];
+    for (const [k, v] of Object.entries(claimedRoutes)) {
+      if (v !== claimer) continue;
+      const [routeIdStr] = k.split("_");
+      const id = Number(routeIdStr);
+      const route = ROUTES.find((r) => r.id === id);
+      if (!route) continue;
+      let connects = null;
+      if (Array.isArray(route.connects) && route.connects.length === 2) {
+        connects = route.connects;
+      } else {
+        connects = inferRouteConnectsByGeometry(route);
+      }
+      if (connects && connects[0] && connects[1]) {
+        edges.push([connects[0], connects[1]]);
+      }
+    }
+    return edges;
+  };
+
+  const isConnectedViaEdges = (edges, start, goal) => {
+    if (start === goal) return true;
+    // Build adjacency
+    const adj = new Map();
+    const add = (u, v) => {
+      if (!adj.has(u)) adj.set(u, new Set());
+      adj.get(u).add(v);
+    };
+    for (const [a, b] of edges) {
+      add(a, b);
+      add(b, a);
+    }
+    const visited = new Set([start]);
+    const q = [start];
+    while (q.length) {
+      const u = q.shift();
+      if (u === goal) return true;
+      const nbrs = adj.get(u) || new Set();
+      for (const v of nbrs) {
+        if (!visited.has(v)) {
+          visited.add(v);
+          q.push(v);
+        }
+      }
+    }
+    return false;
+  };
+
+  const awardCompletedTickets = (claimer) => {
+    const edges = getClaimedEdges(claimer);
+    if (edges.length === 0) return; // nothing to connect yet
+
+    if (claimer === "player") {
+      const newlyCompleted = {};
+      let gained = 0;
+      playerTickets.forEach((t) => {
+        const key = makeTicketKey(t);
+        if (playerCompletedTickets[key]) return; // already scored
+        if (isConnectedViaEdges(edges, t.cityA, t.cityB)) {
+          newlyCompleted[key] = true;
+          gained += Number(t.points) || 0;
+        }
+      });
+      if (gained > 0) setScore((prev) => prev + gained);
+      if (Object.keys(newlyCompleted).length > 0) {
+        setPlayerCompletedTickets((prev) => ({ ...prev, ...newlyCompleted }));
+      }
+    } else if (claimer === "ai") {
+      const newlyCompleted = {};
+      let gained = 0;
+      aiTickets.forEach((t) => {
+        const key = makeTicketKey(t);
+        if (aiCompletedTickets[key]) return; // already scored
+        if (isConnectedViaEdges(edges, t.cityA, t.cityB)) {
+          newlyCompleted[key] = true;
+          gained += Number(t.points) || 0;
+        }
+      });
+      if (gained > 0) setAiScore((prev) => prev + gained);
+      if (Object.keys(newlyCompleted).length > 0) {
+        setAiCompletedTickets((prev) => ({ ...prev, ...newlyCompleted }));
+      }
+    }
+  };
+
   const logPlayerAction = (action) => {
     setPlayerTurnActions((prev) => [...prev, action]);
   };
 
   useEffect(() => {
+    if (gameOver) return;
     if (isAiTurn) {
       playAiTurn();
     }
-  }, [isAiTurn]);
+  }, [isAiTurn, gameOver]);
+
+  // When routes are claimed or tickets change, check for new completions
+  useEffect(() => {
+    awardCompletedTickets("player");
+    awardCompletedTickets("ai");
+  }, [claimedRoutes, playerTickets, aiTickets]);
 
   const playAiTurn = async () => {
     // Collect game state
@@ -249,6 +469,7 @@ export default function Home() {
       aiTickets,
       aiScore,
       aiPlacedTiles,
+      cardsDrawn,
       playerHandCount: Object.values(playerHand).reduce((a, b) => a + b, 0),
       playerTicketsCount: playerTickets.length,
       playerScore: score,
@@ -275,18 +496,17 @@ export default function Home() {
               role: "user",
               content: `Current Game State: ${JSON.stringify(gameState)}. 
               Available actions: 
-              1. { "action": "draw_display", "index": number } - draw a card from display (index 0-4). If you draw a rainbow, turn ends. Otherwise you draw twice.
-              2. { "action": "draw_deck" } - draw a card from deck. You draw twice unless it's the last card.
-              3. { "action": "draw_tickets" } - draw 2 tickets, then you must choose at least 1. (This will trigger a second step)
-              4. { "action": "place_tiles", "routeId": number, "side": "single"|"even"|"odd", "color": string } - place tiles on a route.
+              1. { "action": "draw_display", "index": number } - draw a card from display (index 0-4). If you draw a rainbow (and cardsDrawn is 0), turn ends. If you draw a non-rainbow, you can draw again.
+              2. { "action": "draw_deck" } - draw a card from deck.
+              3. { "action": "draw_tickets" } - draw 2 tickets (only if cardsDrawn is 0).
+              4. { "action": "place_tiles", "routeId": number, "side": "single"|"even"|"odd", "color": string } - place tiles on a route (only if cardsDrawn is 0).
               
-              Important rules:
-              - To claim a route, you must have enough cards of that color (or rainbows).
-              - If you have 0 cards drawn, you can draw from display, draw from deck, or draw tickets.
-              - If you have 1 card drawn, you can only draw from display (non-rainbow) or draw from deck.
-              - If you have 0 cards drawn, you can also place tiles.
+              Rules for the current turn (cardsDrawn = ${gameState.cardsDrawn}):
+              - If cardsDrawn is 0: you can draw_display, draw_deck, draw_tickets, or place_tiles.
+              - If cardsDrawn is 1: you can ONLY draw_display (non-rainbow) or draw_deck. You CANNOT draw_tickets or place_tiles.
+              - Drawing a rainbow from the display costs 2 actions and ends your turn immediately.
               
-              Choose one action based on the state.`,
+              Choose exactly one action based on these rules.`,
             },
           ],
         }),
@@ -352,6 +572,10 @@ export default function Home() {
   };
 
   const drawAiFromDisplay = (index) => {
+    if (gameOver || !isAiTurn || cardsDrawn >= 2) {
+      incrementTurn();
+      return;
+    }
     const card = displayCards[index];
     if (!card) {
       incrementTurn();
@@ -385,13 +609,16 @@ export default function Home() {
       incrementTurn();
     } else {
       setCardsDrawn(total);
-      // AI gets another draw, call AI again or just draw another one randomly?
-      // For simplicity, let's call AI again if they need to draw another card
+      // AI gets another draw, call AI again
       playAiTurn();
     }
   };
 
   const drawAiFromDeck = () => {
+    if (gameOver || !isAiTurn || cardsDrawn >= 2) {
+      incrementTurn();
+      return;
+    }
     let currentDeck = [...trainDeck],
       currentDiscard = [...discardPile];
     if (currentDeck.length === 0 && currentDiscard.length > 0) {
@@ -420,6 +647,10 @@ export default function Home() {
   };
 
   const drawAiTickets = () => {
+    if (gameOver || !isAiTurn || cardsDrawn > 0) {
+      incrementTurn();
+      return;
+    }
     if (ticketDeck.length === 0) {
       incrementTurn();
       return;
@@ -428,10 +659,14 @@ export default function Home() {
     setTicketDeck((prev) => prev.slice(2));
     // AI chooses at least 1 ticket. Simple AI: take both.
     setAiTickets((prev) => [...prev, ...drawn]);
-    incrementTurn();
+    if (!gameOver) incrementTurn();
   };
 
   const executeAiPlaceTiles = (routeId, side, color) => {
+    if (gameOver || !isAiTurn || cardsDrawn > 0) {
+      incrementTurn();
+      return;
+    }
     const route = ROUTES.find((r) => r.id === routeId);
     if (!route) {
       incrementTurn();
@@ -494,6 +729,55 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen flex-col items-center bg-zinc-100 font-sans dark:bg-zinc-900 p-8">
+      {gameOver && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md">
+          <div className="bg-white dark:bg-zinc-900 p-12 rounded-[40px] shadow-2xl border border-zinc-200 dark:border-zinc-800 flex flex-col items-center max-w-lg w-full text-center">
+            <h2 className="text-5xl font-black mb-2 text-zinc-800 dark:text-zinc-100">
+              Game Over
+            </h2>
+            <p className="text-zinc-500 mb-8 uppercase tracking-[0.2em] font-bold">
+              Final Results
+            </p>
+
+            <div className="flex gap-12 mb-12">
+              <div className="flex flex-col">
+                <span className="text-sm text-zinc-400 uppercase font-bold mb-1">
+                  Player
+                </span>
+                <span className="text-6xl font-black text-zinc-800 dark:text-zinc-100">
+                  {score}
+                </span>
+              </div>
+              <div className="w-px h-16 bg-zinc-200 dark:bg-zinc-800 self-center" />
+              <div className="flex flex-col">
+                <span className="text-sm text-zinc-400 uppercase font-bold mb-1">
+                  AI
+                </span>
+                <span className="text-6xl font-black text-zinc-800 dark:text-zinc-100">
+                  {aiScore}
+                </span>
+              </div>
+            </div>
+
+            <div className="text-2xl font-bold mb-8">
+              {score > aiScore ? (
+                <span className="text-green-500">🎉 Player Wins!</span>
+              ) : score < aiScore ? (
+                <span className="text-red-500">🤖 AI Wins!</span>
+              ) : (
+                <span className="text-blue-500">🤝 It's a Tie!</span>
+              )}
+            </div>
+
+            <button
+              onClick={() => window.location.reload()}
+              className="px-8 py-4 bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-2xl font-bold hover:scale-105 transition-transform"
+            >
+              Play Again
+            </button>
+          </div>
+        </div>
+      )}
       <header className="mb-8 text-center flex items-center justify-center gap-12">
         <h1 className="text-4xl font-bold text-zinc-800 dark:text-zinc-100 mb-2">
           Ticket to Ride London
@@ -517,9 +801,14 @@ export default function Home() {
             <span className="text-3xl  text-zinc-100 tabular-nums leading-none">
               {turn}
             </span>
-            {isAiTurn && (
+            {isAiTurn && !gameOver && (
               <span className="text-[10px] uppercase font-black text-red-500 mt-1">
                 AI Thinking...
+              </span>
+            )}
+            {lastRoundTriggered && !gameOver && (
+              <span className="text-[10px] uppercase font-black text-amber-500 mt-1">
+                Last Round!
               </span>
             )}
           </div>
@@ -533,6 +822,12 @@ export default function Home() {
               AI Score
             </span>
             <span className="text-2xl font-black">{aiScore}</span>
+          </div>
+          <div className="flex flex-col items-center">
+            <span className="text-[10px] uppercase font-bold text-zinc-400">
+              AI Tiles Left
+            </span>
+            <span className="text-2xl font-black">{17 - aiPlacedTiles}</span>
           </div>
           <div className="flex flex-col items-center">
             <span className="text-[10px] uppercase font-bold text-zinc-400">
@@ -608,7 +903,7 @@ export default function Home() {
             Scroll to explore the map
           </p>
           <p className="mt-10 text-lg text-zinc-500 dark:text-zinc-400">
-            Player board
+            Player board ({17 - placedTiles} tiles left)
           </p>
           {drawingTickets && (
             <div className="bg-white dark:bg-zinc-900 p-8 rounded-3xl shadow-2xl border border-zinc-200 dark:border-zinc-800 flex flex-col items-center max-w-2xl w-full mt-10">

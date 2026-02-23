@@ -1,5 +1,5 @@
 import { generateText } from "ai";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 
 export async function POST(req) {
   try {
@@ -9,12 +9,13 @@ export async function POST(req) {
     const userMessages = messages.filter((m) => m.role === "user");
     const lastUserMessage = userMessages[userMessages.length - 1]?.content;
 
-    const google = createGoogleGenerativeAI({
-      apiKey: process.env.AI_GATEWAY_API_KEY,
+    const hackclub = createOpenRouter({
+      apiKey: process.env.HACK_CLUB_AI_KEY,
+      baseUrl: "https://ai.hackclub.com/proxy/v1",
     });
 
     const result = await generateText({
-      model: "google/gemini-3-flash",
+      model: hackclub("google/gemini-3-flash-preview"),
       ...(systemMessage && { system: systemMessage }),
       prompt: lastUserMessage,
     });
