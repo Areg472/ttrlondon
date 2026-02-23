@@ -90,7 +90,6 @@ export function TicketCard({
               top: 85,
               left: 5,
               color: "#ef4444",
-              textShadow: "0 1px 0 rgba(255,255,255,0.6)",
             }}
           >
             <span>{cityA}</span>
@@ -101,7 +100,6 @@ export function TicketCard({
               left: 5,
               top: 98,
               color: "#3b82f6",
-              textShadow: "0 1px 0 rgba(255,255,255,0.6)",
               textAlign: bx < width / 2 ? "left" : "right",
             }}
           >
