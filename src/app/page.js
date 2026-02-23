@@ -244,24 +244,27 @@ export default function Home() {
   };
 
   const incrementPlaced = (n) => {
-    let nextPlaced;
+    const tilesToAdd = Number(n) || 0;
     if (isAiTurn) {
       setAiPlacedTiles((prev) => {
-        nextPlaced = prev + (Number(n) || 0);
+        const nextPlaced = prev + tilesToAdd;
+        // Check for game end trigger: 17 total tiles, so 15 or more placed means 2 or less left
+        if (nextPlaced >= 15 && !lastRoundTriggered) {
+          setLastRoundTriggered(true);
+          setFinalTurnsLeft(2);
+        }
         return nextPlaced;
       });
     } else {
       setPlacedTiles((prev) => {
-        nextPlaced = prev + (Number(n) || 0);
+        const nextPlaced = prev + tilesToAdd;
+        // Check for game end trigger: 17 total tiles, so 15 or more placed means 2 or less left
+        if (nextPlaced >= 15 && !lastRoundTriggered) {
+          setLastRoundTriggered(true);
+          setFinalTurnsLeft(2);
+        }
         return nextPlaced;
       });
-    }
-    // Check for game end trigger: 17 total tiles, so 15 or more placed means 2 or less left
-    if (nextPlaced >= 15 && !lastRoundTriggered) {
-      setLastRoundTriggered(true);
-      setFinalTurnsLeft(2); // One more turn for EACH player (including the current one's completion?)
-      // Actually, "Afterwards the player and the AI do one more turn"
-      // If Player triggers it, AI does one more, then Player does one more. Total 2 turns after the current one.
     }
   };
 
