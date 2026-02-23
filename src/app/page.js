@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   TrainTile,
   TrainTileCont,
@@ -18,88 +18,49 @@ import {
 } from "./data/gameData";
 import { TicketSelection } from "./Components/TicketSelection";
 
+// --- Utility helpers ---
+const checkThreeRainbows = (currentDisplay, currentDeck, currentDiscard) => {
+  let display = [...currentDisplay],
+    deck = [...currentDeck],
+    discard = [...currentDiscard];
+  while (display.filter((c) => c.rainbow).length >= 3) {
+    discard = [...discard, ...display];
+    if (deck.length < 5 && discard.length > 0) {
+      deck = [...deck, ...shuffle(discard)];
+      discard = [];
+    }
+    display = deck.slice(0, 5);
+    deck = deck.slice(5);
+    if (display.length === 0) break;
+  }
+  return { display, deck, discard };
+};
+
 export default function Home() {
-  const [playerHand, setPlayerHand] = useState({
-    orange: 0,
-    blue: 0,
-    black: 0,
-    red: 0,
-    yellow: 0,
-    green: 0,
-    rainbow: 0,
-  });
-  const [aiHand, setAiHand] = useState({
-    orange: 0,
-    blue: 0,
-    black: 0,
-    red: 0,
-    yellow: 0,
-    green: 0,
-    rainbow: 0,
-  });
-  const [score, setScore] = useState(0);
-  const [aiScore, setAiScore] = useState(0);
-  const [turn, setTurn] = useState(1);
-  const [isAiTurn, setIsAiTurn] = useState(false);
-  const [cardsDrawn, setCardsDrawn] = useState(0);
-  const [placedTiles, setPlacedTiles] = useState(0);
-  const [aiPlacedTiles, setAiPlacedTiles] = useState(0);
-  const [discardPile, setDiscardPile] = useState([]);
-  const [displayCards, setDisplayCards] = useState([]);
-  const [trainDeck, setTrainDeck] = useState(INITIAL_TRAIN_CARDS_DECK);
-  const [ticketDeck, setTicketDeck] = useState(TICKETS);
-  const [playerTickets, setPlayerTickets] = useState([]);
-  const [aiTickets, setAiTickets] = useState([]);
-  const [drawingTickets, setDrawingTickets] = useState(null);
-  const [claimedRoutes, setClaimedRoutes] = useState({}); // { routeId_side: 'player' | 'ai' }
-  const [playerTurnActions, setPlayerTurnActions] = useState([]);
-  // Track completed tickets (hidden) to avoid double-scoring
-  const [playerCompletedTickets, setPlayerCompletedTickets] = useState({}); // { "cityA|cityB": true }
-  const [aiCompletedTickets, setAiCompletedTickets] = useState({}); // { "cityA|cityB": true }
-  const [gameOver, setGameOver] = useState(false);
-  const [lastRoundTriggered, setLastRoundTriggered] = useState(false);
-  const [finalTurnsLeft, setFinalTurnsLeft] = useState(-1); // -1: not started, 0: game over, 1,2: countdown
-
-  const checkThreeRainbows = useCallback(
-    (currentDisplay, currentDeck, currentDiscard) => {
-      let display = [...currentDisplay],
-        deck = [...currentDeck],
-        discard = [...currentDiscard];
-      while (display.filter((c) => c.rainbow).length >= 3) {
-        discard = [...discard, ...display];
-        if (deck.length < 5 && discard.length > 0) {
-          deck = [...deck, ...shuffle(discard)];
-          discard = [];
-        }
-        display = deck.slice(0, 5);
-        deck = deck.slice(5);
-        if (display.length === 0) break;
-      }
-      return { display, deck, discard };
-    },
-    [],
-  );
-
-  const [hasInitialized, setHasInitialized] = useState(false);
-  if (!hasInitialized) {
-    // 1. Setup Train Card display and deck
+  // 1. Setup Initial State (Lazy Initialization)
+  const getInitialGameState = () => {
+    // A. Setup Train Card display and deck
     const initialTrainDeck = [...INITIAL_TRAIN_CARDS_DECK];
-    const { display, deck, discard } = checkThreeRainbows(
+    const {
+      display: initialDisplay,
+      deck: initialDeck,
+      discard: initialDiscard,
+    } = checkThreeRainbows(
       initialTrainDeck.slice(0, 5),
       initialTrainDeck.slice(5),
       [],
     );
 
-    // 2. Give 2 tickets for Player and 2 for AI (drawn from deck)
+    // B. Give 2 tickets for Player and 2 for AI (drawn from deck)
     const initialTicketDeck = [...TICKETS];
     const playerInitialTickets = initialTicketDeck.slice(0, 2);
     const aiInitialTickets = initialTicketDeck.slice(2, 4);
     const remainingTicketDeck = initialTicketDeck.slice(4);
 
-    // 3. Give 2 train cards to player and AI (after tickets are drawn)
-    const playerInitialTrain = deck.slice(0, 2);
-    const aiInitialTrain = deck.slice(2, 4);
-    const remainingDeck = deck.slice(4);
+    // C. Give 2 train cards to player and AI (after tickets are drawn)
+    const playerInitialTrain = initialDeck.slice(0, 2);
+    const aiInitialTrain = initialDeck.slice(2, 4);
+    const remainingTrainDeck = initialDeck.slice(4);
 
     const initialPlayerHand = {
       orange: 0,
@@ -121,20 +82,48 @@ export default function Home() {
       initialAiHand[key]++;
     });
 
-    // Apply states
-    setDisplayCards(display);
-    setTrainDeck(remainingDeck);
-    setDiscardPile(discard);
-    setPlayerHand(initialPlayerHand);
-    setAiHand(initialAiHand);
+    return {
+      display: initialDisplay,
+      trainDeck: remainingTrainDeck,
+      discard: initialDiscard,
+      playerHand: initialPlayerHand,
+      aiHand: initialAiHand,
+      drawingTickets: playerInitialTickets,
+      aiTickets: aiInitialTickets,
+      ticketDeck: remainingTicketDeck,
+    };
+  };
 
-    // Initial choices: player picks from their 2 tickets, AI keeps both
-    setDrawingTickets(playerInitialTickets);
-    setAiTickets(aiInitialTickets);
-    setTicketDeck(remainingTicketDeck);
+  const [initialState] = useState(getInitialGameState);
 
-    setHasInitialized(true);
-  }
+  const [playerHand, setPlayerHand] = useState(initialState.playerHand);
+  const [aiHand, setAiHand] = useState(initialState.aiHand);
+  const [score, setScore] = useState(0);
+  const [aiScore, setAiScore] = useState(0);
+  const [turn, setTurn] = useState(1);
+  const [isAiTurn, setIsAiTurn] = useState(false);
+  const [cardsDrawn, setCardsDrawn] = useState(0);
+  const [placedTiles, setPlacedTiles] = useState(0);
+  const [aiPlacedTiles, setAiPlacedTiles] = useState(0);
+  const [discardPile, setDiscardPile] = useState(initialState.discard);
+  const [displayCards, setDisplayCards] = useState(initialState.display);
+  const [trainDeck, setTrainDeck] = useState(initialState.trainDeck);
+  const [ticketDeck, setTicketDeck] = useState(initialState.ticketDeck);
+  const [playerTickets, setPlayerTickets] = useState([]);
+  const [aiTickets, setAiTickets] = useState(initialState.aiTickets);
+  const [drawingTickets, setDrawingTickets] = useState(
+    initialState.drawingTickets,
+  );
+  const [claimedRoutes, setClaimedRoutes] = useState({}); // { routeId_side: 'player' | 'ai' }
+  const [playerTurnActions, setPlayerTurnActions] = useState([]);
+  // Track completed tickets (hidden) to avoid double-scoring
+  const [playerCompletedTickets, setPlayerCompletedTickets] = useState({}); // { "cityA|cityB": true }
+  const [aiCompletedTickets, setAiCompletedTickets] = useState({}); // { "cityA|cityB": true }
+  const [gameOver, setGameOver] = useState(false);
+  const [lastRoundTriggered, setLastRoundTriggered] = useState(false);
+  const [finalTurnsLeft, setFinalTurnsLeft] = useState(-1); // -1: not started, 0: game over, 1,2: countdown
+  const isAiThinkingRef = useRef(false);
+  const lastProcessedAiAction = useRef("");
 
   const drawFromDisplay = (index) => {
     if (gameOver || isAiTurn || cardsDrawn >= 2 || drawingTickets) return;
@@ -156,6 +145,12 @@ export default function Home() {
     let nextDisplay = [...displayCards],
       nextDeck = [...trainDeck],
       nextDiscard = [...discardPile];
+
+    if (nextDeck.length === 0 && nextDiscard.length > 0) {
+      nextDeck = shuffle(nextDiscard);
+      nextDiscard = [];
+    }
+
     if (nextDeck.length > 0) {
       nextDisplay[index] = nextDeck[0];
       nextDeck = nextDeck.slice(1);
@@ -223,13 +218,11 @@ export default function Home() {
 
   const incrementTurn = () => {
     if (lastRoundTriggered) {
-      if (finalTurnsLeft > 0) {
-        setFinalTurnsLeft((prev) => prev - 1);
-      }
-      if (finalTurnsLeft === 1) {
+      if (finalTurnsLeft === 0) {
         setGameOver(true);
         return;
       }
+      setFinalTurnsLeft((prev) => prev - 1);
     }
 
     if (!isAiTurn) {
@@ -450,6 +443,8 @@ export default function Home() {
   };
 
   const playAiTurn = async () => {
+    if (isAiThinkingRef.current || gameOver || !isAiTurn) return;
+    isAiThinkingRef.current = true;
     // Collect game state
     const gameState = {
       aiHand,
@@ -532,9 +527,8 @@ export default function Home() {
         console.error("Failed to parse AI action (no JSON found):", content);
         incrementTurn();
       }
-    } catch (error) {
-      console.error("AI Turn Error:", error);
-      incrementTurn();
+    } finally {
+      isAiThinkingRef.current = false;
     }
   };
 
@@ -559,11 +553,14 @@ export default function Home() {
   };
 
   useEffect(() => {
-    if (gameOver) return;
-    if (isAiTurn) {
+    if (gameOver || !isAiTurn) return;
+
+    const currentKey = `${turn}-${cardsDrawn}`;
+    if (lastProcessedAiAction.current !== currentKey) {
+      lastProcessedAiAction.current = currentKey;
       playAiTurn();
     }
-  }, [isAiTurn, gameOver]);
+  }, [isAiTurn, turn, cardsDrawn, gameOver]);
 
   const drawAiFromDisplay = (index) => {
     if (gameOver || !isAiTurn || cardsDrawn >= 2) {
@@ -585,6 +582,12 @@ export default function Home() {
     let nextDisplay = [...displayCards],
       nextDeck = [...trainDeck],
       nextDiscard = [...discardPile];
+
+    if (nextDeck.length === 0 && nextDiscard.length > 0) {
+      nextDeck = shuffle(nextDiscard);
+      nextDiscard = [];
+    }
+
     if (nextDeck.length > 0) {
       nextDisplay[index] = nextDeck[0];
       nextDeck = nextDeck.slice(1);
@@ -603,7 +606,6 @@ export default function Home() {
       incrementTurn();
     } else {
       setCardsDrawn(total);
-      playAiTurn();
     }
   };
 
@@ -635,7 +637,7 @@ export default function Home() {
       incrementTurn();
     } else {
       setCardsDrawn(total);
-      playAiTurn();
+      // Allow next AI decision after state settles
     }
   };
 
