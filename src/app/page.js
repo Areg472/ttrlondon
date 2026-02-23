@@ -18,7 +18,6 @@ import {
 } from "./data/gameData";
 import { TicketSelection } from "./Components/TicketSelection";
 
-// --- Utility helpers ---
 const checkThreeRainbows = (currentDisplay, currentDeck, currentDiscard) => {
   let display = [...currentDisplay],
     deck = [...currentDeck],
@@ -37,9 +36,7 @@ const checkThreeRainbows = (currentDisplay, currentDeck, currentDiscard) => {
 };
 
 export default function Home() {
-  // 1. Setup Initial State (Lazy Initialization)
   const getInitialGameState = () => {
-    // A. Setup Train Card display and deck
     const initialTrainDeck = [...INITIAL_TRAIN_CARDS_DECK];
     const {
       display: initialDisplay,
@@ -51,13 +48,11 @@ export default function Home() {
       [],
     );
 
-    // B. Give 2 tickets for Player and 2 for AI (drawn from deck)
     const initialTicketDeck = [...TICKETS];
     const playerInitialTickets = initialTicketDeck.slice(0, 2);
     const aiInitialTickets = initialTicketDeck.slice(2, 4);
     const remainingTicketDeck = initialTicketDeck.slice(4);
 
-    // C. Give 2 train cards to player and AI (after tickets are drawn)
     const playerInitialTrain = initialDeck.slice(0, 2);
     const aiInitialTrain = initialDeck.slice(2, 4);
     const remainingTrainDeck = initialDeck.slice(4);
@@ -114,14 +109,17 @@ export default function Home() {
   const [drawingTickets, setDrawingTickets] = useState(
     initialState.drawingTickets,
   );
-  const [claimedRoutes, setClaimedRoutes] = useState({}); // { routeId_side: 'player' | 'ai' }
+  const [claimedRoutes, setClaimedRoutes] = useState({});
   const [playerTurnActions, setPlayerTurnActions] = useState([]);
-  // Track completed tickets (hidden) to avoid double-scoring
-  const [playerCompletedTickets, setPlayerCompletedTickets] = useState({}); // { "cityA|cityB": true }
-  const [aiCompletedTickets, setAiCompletedTickets] = useState({}); // { "cityA|cityB": true }
+
+  const [playerCompletedTickets, setPlayerCompletedTickets] = useState({});
+  const [aiCompletedTickets, setAiCompletedTickets] = useState({});
   const [gameOver, setGameOver] = useState(false);
   const [lastRoundTriggered, setLastRoundTriggered] = useState(false);
-  const [finalTurnsLeft, setFinalTurnsLeft] = useState(-1); // -1: not started, 0: game over, 1,2: countdown
+  const [finalTurnsLeft, setFinalTurnsLeft] = useState(-1);
+  const [playerNumberBonuses, setPlayerNumberBonuses] = useState([]);
+  const [aiNumberBonuses, setAiNumberBonuses] = useState([]);
+  const [finalBonusesApplied, setFinalBonusesApplied] = useState(false);
   const isAiThinkingRef = useRef(false);
   const lastProcessedAiAction = useRef("");
 
@@ -230,7 +228,7 @@ export default function Home() {
     } else {
       setIsAiTurn(false);
       setTurn((prev) => prev + 1);
-      setPlayerTurnActions([]); // Reset history when starting a new player turn cycle
+      setPlayerTurnActions([]);
     }
     setCardsDrawn(0);
   };
@@ -248,7 +246,7 @@ export default function Home() {
     if (isAiTurn) {
       setAiPlacedTiles((prev) => {
         const nextPlaced = prev + tilesToAdd;
-        // Check for game end trigger: 17 total tiles, so 15 or more placed means 2 or less left
+
         if (nextPlaced >= 15 && !lastRoundTriggered) {
           setLastRoundTriggered(true);
           setFinalTurnsLeft(2);
@@ -258,7 +256,7 @@ export default function Home() {
     } else {
       setPlacedTiles((prev) => {
         const nextPlaced = prev + tilesToAdd;
-        // Check for game end trigger: 17 total tiles, so 15 or more placed means 2 or less left
+
         if (nextPlaced >= 15 && !lastRoundTriggered) {
           setLastRoundTriggered(true);
           setFinalTurnsLeft(2);
@@ -301,17 +299,15 @@ export default function Home() {
     }));
   };
 
-  // --- Ticket connectivity and scoring helpers ---
   const makeTicketKey = (t) => `${t.cityA}|${t.cityB}`;
 
-  // Cache for dynamically inferred endpoints by geometry to avoid recompute every render
   const routeConnectCache = { cache: {} };
 
   const inferRouteConnectsByGeometry = (route) => {
     if (!route) return null;
     const cached = routeConnectCache.cache[route.id];
     if (cached) return cached;
-    // Base point is the container's left/top; approximate tile length = 80 px
+
     const start = { x: route.x, y: route.y };
     let dx = 0;
     let dy = 0;
@@ -337,7 +333,6 @@ export default function Home() {
     const a = nearestCityTo(start);
     let b = nearestCityTo(end);
     if (b === a) {
-      // pick the next nearest different city to end if same
       let bestAlt = null;
       for (const c of CITIES) {
         if (c.name === a) continue;
@@ -355,7 +350,6 @@ export default function Home() {
   };
 
   const getClaimedEdges = (claimer) => {
-    // claimer: 'player' | 'ai'
     const edges = [];
     for (const [k, v] of Object.entries(claimedRoutes)) {
       if (v !== claimer) continue;
@@ -378,7 +372,7 @@ export default function Home() {
 
   const isConnectedViaEdges = (edges, start, goal) => {
     if (start === goal) return true;
-    // Build adjacency
+
     const adj = new Map();
     const add = (u, v) => {
       if (!adj.has(u)) adj.set(u, new Set());
@@ -404,16 +398,65 @@ export default function Home() {
     return false;
   };
 
+  const groupCitiesByNumber = () => {
+    const groups = new Map();
+    for (const c of CITIES) {
+      const n = Number(c.number) || 0;
+      if (!groups.has(n)) groups.set(n, []);
+      groups.get(n).push(c.name);
+    }
+    return groups;
+  };
+
+  const isSetFullyConnected = (edges, names) => {
+    if (!names || names.length <= 1) return false;
+    const start = names[0];
+    for (let i = 1; i < names.length; i++) {
+      if (!isConnectedViaEdges(edges, start, names[i])) return false;
+    }
+    return true;
+  };
+
+  const applyNumberBonuses = () => {
+    const groups = groupCitiesByNumber();
+    const playerEdges = getClaimedEdges("player");
+    const aiEdges = getClaimedEdges("ai");
+
+    const playerNums = [];
+    const aiNums = [];
+
+    for (const [num, names] of groups.entries()) {
+      if (names.length < 2) continue;
+      if (isSetFullyConnected(playerEdges, names)) playerNums.push(num);
+      if (isSetFullyConnected(aiEdges, names)) aiNums.push(num);
+    }
+
+    const add = (arr) => arr.reduce((a, b) => a + b, 0);
+
+    if (playerNums.length) setScore((prev) => prev + add(playerNums));
+    if (aiNums.length) setAiScore((prev) => prev + add(aiNums));
+
+    setPlayerNumberBonuses(playerNums);
+    setAiNumberBonuses(aiNums);
+  };
+
+  useEffect(() => {
+    if (gameOver && !finalBonusesApplied) {
+      applyNumberBonuses();
+      setFinalBonusesApplied(true);
+    }
+  }, [gameOver, finalBonusesApplied, claimedRoutes]);
+
   const awardCompletedTickets = (claimer) => {
     const edges = getClaimedEdges(claimer);
-    if (edges.length === 0) return; // nothing to connect yet
+    if (edges.length === 0) return;
 
     if (claimer === "player") {
       const newlyCompleted = {};
       let gained = 0;
       playerTickets.forEach((t) => {
         const key = makeTicketKey(t);
-        if (playerCompletedTickets[key]) return; // already scored
+        if (playerCompletedTickets[key]) return;
         if (isConnectedViaEdges(edges, t.cityA, t.cityB)) {
           newlyCompleted[key] = true;
           gained += Number(t.points) || 0;
@@ -428,7 +471,7 @@ export default function Home() {
       let gained = 0;
       aiTickets.forEach((t) => {
         const key = makeTicketKey(t);
-        if (aiCompletedTickets[key]) return; // already scored
+        if (aiCompletedTickets[key]) return;
         if (isConnectedViaEdges(edges, t.cityA, t.cityB)) {
           newlyCompleted[key] = true;
           gained += Number(t.points) || 0;
@@ -448,7 +491,7 @@ export default function Home() {
   const playAiTurn = async () => {
     if (isAiThinkingRef.current || gameOver || !isAiTurn) return;
     isAiThinkingRef.current = true;
-    // Collect game state
+
     const gameState = {
       aiHand,
       aiTickets,
@@ -511,7 +554,6 @@ export default function Home() {
         return;
       }
 
-      // Basic cleanup of potential markdown if the AI didn't follow instructions perfectly
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         try {
@@ -640,7 +682,6 @@ export default function Home() {
       incrementTurn();
     } else {
       setCardsDrawn(total);
-      // Allow next AI decision after state settles
     }
   };
 
@@ -655,7 +696,7 @@ export default function Home() {
     }
     const drawn = ticketDeck.slice(0, 2);
     setTicketDeck((prev) => prev.slice(2));
-    // AI chooses at least 1 ticket. Simple AI: take both.
+
     setAiTickets((prev) => [...prev, ...drawn]);
     if (!gameOver) incrementTurn();
   };
@@ -719,7 +760,6 @@ export default function Home() {
       claimRoute(routeId, side, "ai");
       incrementTurn();
     } else {
-      // AI made an invalid move or doesn't have cards
       console.log("AI couldn't place tiles, drawing from deck instead");
       drawAiFromDeck();
     }
@@ -756,6 +796,34 @@ export default function Home() {
                 </span>
               </div>
             </div>
+
+            {(playerNumberBonuses.length > 0 || aiNumberBonuses.length > 0) && (
+              <div className="mb-6 text-sm text-zinc-600 dark:text-zinc-300 text-left w-full">
+                <div className="font-semibold mb-2">City-number bonuses</div>
+                <div className="mb-1">
+                  Player:{" "}
+                  {playerNumberBonuses.length > 0
+                    ? [...playerNumberBonuses].sort((a, b) => a - b).join(", ")
+                    : "—"}
+                  {playerNumberBonuses.length > 0 && (
+                    <span className="ml-2 text-zinc-500">
+                      (+{playerNumberBonuses.reduce((a, b) => a + b, 0)})
+                    </span>
+                  )}
+                </div>
+                <div>
+                  AI:{" "}
+                  {aiNumberBonuses.length > 0
+                    ? [...aiNumberBonuses].sort((a, b) => a - b).join(", ")
+                    : "—"}
+                  {aiNumberBonuses.length > 0 && (
+                    <span className="ml-2 text-zinc-500">
+                      (+{aiNumberBonuses.reduce((a, b) => a + b, 0)})
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="text-2xl font-bold mb-8">
               {score > aiScore ? (
