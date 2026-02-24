@@ -39,6 +39,10 @@ export function TrainTileCont({
 
   const canClaimWithColor = (routeColor, side) => {
     if (playerHand?.claimedRoutes?.[`${routeId}_${side}`]) return false;
+    if (isDouble) {
+      const otherSide = side === "even" ? "odd" : "even";
+      if (playerHand?.claimedRoutes?.[`${routeId}_${otherSide}`]) return false;
+    }
     if (playerHand?.isAiTurn) return false;
     if (playerHand?.cardsDrawn > 0) return false;
     const length = Number(trainCount) || 0,
@@ -118,6 +122,8 @@ export function TrainTileCont({
     if (isDouble) {
       const side = index % 2 === 0 ? "even" : "odd";
       if (playerHand?.claimedRoutes?.[`${routeId}_${side}`]) return;
+      const otherSide = side === "even" ? "odd" : "even";
+      if (playerHand?.claimedRoutes?.[`${routeId}_${otherSide}`]) return;
       if (claimedSide && claimedSide !== side) return;
       if (!claimedSide && !trySpend()) return;
       if (!claimedSide) {

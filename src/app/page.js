@@ -112,14 +112,15 @@ export default function Home() {
   const [claimedRoutes, setClaimedRoutes] = useState({});
   const [playerTurnActions, setPlayerTurnActions] = useState([]);
 
-  const [playerCompletedTickets, setPlayerCompletedTickets] = useState({});
-  const [aiCompletedTickets, setAiCompletedTickets] = useState({});
+  const [playerTicketResults, setPlayerTicketResults] = useState([]);
+  const [aiTicketResults, setAiTicketResults] = useState([]);
   const [gameOver, setGameOver] = useState(false);
   const [lastRoundTriggered, setLastRoundTriggered] = useState(false);
   const [finalTurnsLeft, setFinalTurnsLeft] = useState(-1);
   const [playerNumberBonuses, setPlayerNumberBonuses] = useState([]);
   const [aiNumberBonuses, setAiNumberBonuses] = useState([]);
   const [finalBonusesApplied, setFinalBonusesApplied] = useState(false);
+  const [aiLastAction, setAiLastAction] = useState(null);
   const isAiThinkingRef = useRef(false);
   const lastProcessedAiAction = useRef("");
 
@@ -139,22 +140,6 @@ export default function Home() {
       ...prev,
       [colorKey]: (prev[colorKey] ?? 0) + 1,
     }));
-
-    let nextDisplay = [...displayCards],
-      nextDeck = [...trainDeck],
-      nextDiscard = [...discardPile];
-
-    if (nextDeck.length === 0 && nextDiscard.length > 0) {
-      nextDeck = shuffle(nextDiscard);
-      nextDiscard = [];
-    }
-
-    if (nextDeck.length > 0) {
-      nextDisplay[index] = nextDeck[0];
-      nextDeck = nextDeck.slice(1);
-    } else {
-      nextDisplay.splice(index, 1);
-    }
 
     const result = checkThreeRainbows(nextDisplay, nextDeck, nextDiscard);
     setDisplayCards(result.display);
@@ -299,8 +284,6 @@ export default function Home() {
     }));
   };
 
-  const makeTicketKey = (t) => `${t.cityA}|${t.cityB}`;
-
   const routeConnectCache = { cache: {} };
 
   const inferRouteConnectsByGeometry = (route) => {
@@ -438,6 +421,31 @@ export default function Home() {
 
     setPlayerNumberBonuses(playerNums);
     setAiNumberBonuses(aiNums);
+
+    // Apply ticket scoring
+    const playerResults = playerTickets.map((t) => {
+      const completed = isConnectedViaEdges(playerEdges, t.cityA, t.cityB);
+      return { ...t, completed };
+    });
+    const aiResults = aiTickets.map((t) => {
+      const completed = isConnectedViaEdges(aiEdges, t.cityA, t.cityB);
+      return { ...t, completed };
+    });
+
+    const playerTicketDelta = playerResults.reduce(
+      (sum, t) => sum + (t.completed ? t.points : -t.points),
+      0,
+    );
+    const aiTicketDelta = aiResults.reduce(
+      (sum, t) => sum + (t.completed ? t.points : -t.points),
+      0,
+    );
+
+    setScore((prev) => prev + playerTicketDelta);
+    setAiScore((prev) => prev + aiTicketDelta);
+
+    setPlayerTicketResults(playerResults);
+    setAiTicketResults(aiResults);
   };
 
   useEffect(() => {
@@ -445,44 +453,8 @@ export default function Home() {
       applyNumberBonuses();
       setFinalBonusesApplied(true);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameOver, finalBonusesApplied, claimedRoutes]);
-
-  const awardCompletedTickets = (claimer) => {
-    const edges = getClaimedEdges(claimer);
-    if (edges.length === 0) return;
-
-    if (claimer === "player") {
-      const newlyCompleted = {};
-      let gained = 0;
-      playerTickets.forEach((t) => {
-        const key = makeTicketKey(t);
-        if (playerCompletedTickets[key]) return;
-        if (isConnectedViaEdges(edges, t.cityA, t.cityB)) {
-          newlyCompleted[key] = true;
-          gained += Number(t.points) || 0;
-        }
-      });
-      if (gained > 0) setScore((prev) => prev + gained);
-      if (Object.keys(newlyCompleted).length > 0) {
-        setPlayerCompletedTickets((prev) => ({ ...prev, ...newlyCompleted }));
-      }
-    } else if (claimer === "ai") {
-      const newlyCompleted = {};
-      let gained = 0;
-      aiTickets.forEach((t) => {
-        const key = makeTicketKey(t);
-        if (aiCompletedTickets[key]) return;
-        if (isConnectedViaEdges(edges, t.cityA, t.cityB)) {
-          newlyCompleted[key] = true;
-          gained += Number(t.points) || 0;
-        }
-      });
-      if (gained > 0) setAiScore((prev) => prev + gained);
-      if (Object.keys(newlyCompleted).length > 0) {
-        setAiCompletedTickets((prev) => ({ ...prev, ...newlyCompleted }));
-      }
-    }
-  };
 
   const logPlayerAction = (action) => {
     setPlayerTurnActions((prev) => [...prev, action]);
@@ -645,6 +617,7 @@ export default function Home() {
     setTrainDeck(result.deck);
     setDiscardPile(result.discard);
 
+    setAiLastAction("Drew from the display");
     const draws = card.rainbow ? 2 : 1;
     const total = cardsDrawn + draws;
     if (total >= 2) {
@@ -677,6 +650,7 @@ export default function Home() {
     }));
     setTrainDeck(currentDeck.slice(1));
     setDiscardPile(currentDiscard);
+    setAiLastAction("Drew from the deck");
     const total = cardsDrawn + 1;
     if (total >= 2) {
       incrementTurn();
@@ -698,6 +672,9 @@ export default function Home() {
     setTicketDeck((prev) => prev.slice(2));
 
     setAiTickets((prev) => [...prev, ...drawn]);
+    setAiLastAction(
+      `Drew ${drawn.length} ticket card${drawn.length !== 1 ? "s" : ""}`,
+    );
     if (!gameOver) incrementTurn();
   };
 
@@ -710,6 +687,14 @@ export default function Home() {
     if (!route) {
       incrementTurn();
       return;
+    }
+
+    if (route.isDouble) {
+      const otherSide = side === "even" ? "odd" : "even";
+      if (claimedRoutes[`${routeId}_${otherSide}`]) {
+        drawAiFromDeck();
+        return;
+      }
     }
 
     const length = route.trainCount;
@@ -758,6 +743,9 @@ export default function Home() {
       addPoints(points);
       incrementPlaced(length);
       claimRoute(routeId, side, "ai");
+      setAiLastAction(
+        `Claimed route (${length} train${length !== 1 ? "s" : ""}, ${color} cards)`,
+      );
       incrementTurn();
     } else {
       console.log("AI couldn't place tiles, drawing from deck instead");
@@ -768,7 +756,7 @@ export default function Home() {
   return (
     <div className="flex min-h-screen flex-col items-center bg-zinc-100 font-sans dark:bg-zinc-900 p-8">
       {gameOver && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md">
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-md">
           <div className="bg-white dark:bg-zinc-900 p-12 rounded-[40px] shadow-2xl border border-zinc-200 dark:border-zinc-800 flex flex-col items-center max-w-lg w-full text-center">
             <h2 className="text-5xl font-black mb-2 text-zinc-800 dark:text-zinc-100">
               Game Over
@@ -821,6 +809,38 @@ export default function Home() {
                       (+{aiNumberBonuses.reduce((a, b) => a + b, 0)})
                     </span>
                   )}
+                </div>
+              </div>
+            )}
+
+            {(playerTicketResults.length > 0 || aiTicketResults.length > 0) && (
+              <div className="mb-6 text-sm text-zinc-600 dark:text-zinc-300 text-left w-full">
+                <div className="font-semibold mb-2">Tickets</div>
+                <div className="mb-1">
+                  <span className="font-medium">Player:</span>
+                  {playerTicketResults.length === 0 && " —"}
+                  {playerTicketResults.map((t, i) => (
+                    <span
+                      key={i}
+                      className={`ml-2 ${t.completed ? "text-green-500" : "text-red-500"}`}
+                    >
+                      {t.cityA}→{t.cityB} ({t.completed ? "+" : "-"}
+                      {t.points})
+                    </span>
+                  ))}
+                </div>
+                <div>
+                  <span className="font-medium">AI:</span>
+                  {aiTicketResults.length === 0 && " —"}
+                  {aiTicketResults.map((t, i) => (
+                    <span
+                      key={i}
+                      className={`ml-2 ${t.completed ? "text-green-500" : "text-red-500"}`}
+                    >
+                      {t.cityA}→{t.cityB} ({t.completed ? "+" : "-"}
+                      {t.points})
+                    </span>
+                  ))}
                 </div>
               </div>
             )}
@@ -911,11 +931,22 @@ export default function Home() {
           </div>
         </div>
       </div>
+      <div className="flex gap-4 mb-4">
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          <span className="font-bold text-zinc-700 dark:text-zinc-200">
+            AI last action:
+          </span>{" "}
+          {aiLastAction ?? "None yet"}
+        </p>
+      </div>
 
       <main className="w-full flex justify-center gap-8 p-4">
         <div className="flex flex-col items-center">
-          <div className="relative w-[800px] h-[600px] overflow-auto shadow-2xl rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-zinc-200 dark:bg-zinc-800">
-            <div className="relative min-w-[1200px] aspect-[18/10] bg-white dark:bg-black overflow-hidden">
+          <div className="relative w-200 h-150 overflow-auto shadow-2xl rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-zinc-200 dark:bg-zinc-800">
+            <div
+              className="relative min-w-300 aspect-18/10  bg-black"
+              style={{ paddingBottom: "64px" }}
+            >
               <PlayerHandContext.Provider
                 value={{
                   ...playerHand,
@@ -985,19 +1016,16 @@ export default function Home() {
             </div>
           )}
           <div className="flex flex-row mt-10" style={{ gap: "2.5rem" }}>
-            <div className="gap-2 flex flex-col justify-center max-w-[600px]">
+            <div className="gap-2 flex flex-col justify-center max-w-150">
               <p className="text-sm text-zinc-500 dark:text-zinc-400 font-bold mb-2">
                 Train Cards
               </p>
-              <div className="grid grid-cols-3 border-2 border-dashed p-4 gap-x-8 gap-y-16 min-w-[500px] min-h-[200px]">
+              <div className="grid grid-cols-3 border-2 border-dashed p-4 gap-x-8 gap-y-16 min-w-125 min-h-50">
                 {Object.entries(playerHand)
                   .filter(([_, count]) => count > 0)
                   .map(([color, count]) => {
                     return (
-                      <div
-                        key={color}
-                        className="flex flex-col relative h-[140px]"
-                      >
+                      <div key={color} className="flex flex-col relative h-35">
                         {Array.from({ length: count }).map((_, i) => (
                           <div
                             key={i}
@@ -1046,7 +1074,7 @@ export default function Home() {
 
         <div className="flex flex-col gap-12">
           <div
-            className="relative w-[210px] h-[120px] mt-10 cursor-pointer"
+            className="relative w-52.5 h-30 mt-10 cursor-pointer"
             onClick={drawTickets}
           >
             {ticketDeck.map((t, i) => (
@@ -1073,7 +1101,7 @@ export default function Home() {
           </div>
 
           <div
-            className="relative w-[176px] h-[120px] mt-16 cursor-pointer"
+            className="relative w-44 h-30 mt-16 cursor-pointer"
             onClick={drawFromDeck}
           >
             {trainDeck.map((c, i) => (
@@ -1098,7 +1126,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="relative w-[176px] mt-10">
+          <div className="relative w-44 mt-10">
             <div className="mb-4 text-center text-xs font-bold uppercase tracking-wider text-zinc-500">
               Cards on Display
             </div>
@@ -1118,7 +1146,7 @@ export default function Home() {
               ))}
             </div>
           </div>
-          <div className="relative w-[176px] mt-10">
+          <div className="relative w-44 mt-10">
             <div className="mb-4 text-center text-xs font-bold uppercase tracking-wider text-zinc-500">
               Discard Pile ({discardPile.length})
             </div>
