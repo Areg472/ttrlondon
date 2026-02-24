@@ -389,7 +389,7 @@ export const ROUTES = [
   },
   {
     id: 26,
-    trainCount: 2,
+    trainCount: 1,
     x: 465,
     y: 580,
     tiles: [{ color: "blue", angle: 345 }],
@@ -435,7 +435,7 @@ export const ROUTES = [
   },
   {
     id: 31,
-    trainCount: 4,
+    trainCount: 2,
     x: 650,
     y: 500,
     tiles: [
