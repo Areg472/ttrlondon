@@ -918,43 +918,87 @@ export default function Home() {
         </div>
       </header>
 
-      <div className="flex gap-4 mb-4">
-        <div className="bg-zinc-800 text-white p-4 rounded-xl shadow-lg flex gap-8">
-          <div className="flex flex-col items-center">
-            <span className="text-[10px] uppercase font-bold text-zinc-400">
-              AI Points
-            </span>
-            <span className="text-2xl font-black">{aiScore}</span>
+      <div className="flex flex-row space-x-4">
+        <div>
+          <div className="flex gap-4 mb-4">
+            <div className="bg-zinc-800 text-white p-4 rounded-xl shadow-lg flex gap-8">
+              <div className="flex flex-col items-center">
+                <span className="text-[10px] uppercase font-bold text-zinc-400">
+                  AI Points
+                </span>
+                <span className="text-2xl font-black">{aiScore}</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-[10px] uppercase font-bold text-zinc-400">
+                  AI Train Pieces
+                </span>
+                <span className="text-2xl font-black">
+                  {17 - aiPlacedTiles}
+                </span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-[10px] uppercase font-bold text-zinc-400">
+                  AI Train Cards
+                </span>
+                <span className="text-2xl font-black">
+                  {Object.values(aiHand).reduce((a, b) => a + b, 0)}
+                </span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-[10px] uppercase font-bold text-zinc-400">
+                  AI Tickets
+                </span>
+                <span className="text-2xl font-black">{aiTickets.length}</span>
+              </div>
+            </div>
           </div>
-          <div className="flex flex-col items-center">
-            <span className="text-[10px] uppercase font-bold text-zinc-400">
-              AI Train Pieces
-            </span>
-            <span className="text-2xl font-black">{17 - aiPlacedTiles}</span>
-          </div>
-          <div className="flex flex-col items-center">
-            <span className="text-[10px] uppercase font-bold text-zinc-400">
-              AI Train Cards
-            </span>
-            <span className="text-2xl font-black">
-              {Object.values(aiHand).reduce((a, b) => a + b, 0)}
-            </span>
-          </div>
-          <div className="flex flex-col items-center">
-            <span className="text-[10px] uppercase font-bold text-zinc-400">
-              AI Tickets
-            </span>
-            <span className="text-2xl font-black">{aiTickets.length}</span>
+          <div className="flex gap-4 justify-center mb-4">
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              <span className="font-bold text-zinc-700 dark:text-zinc-200">
+                AI last action:
+              </span>{" "}
+              {aiLastAction ?? "None yet"}
+            </p>
           </div>
         </div>
-      </div>
-      <div className="flex gap-4 mb-4">
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          <span className="font-bold text-zinc-700 dark:text-zinc-200">
-            AI last action:
-          </span>{" "}
-          {aiLastAction ?? "None yet"}
-        </p>
+        <div>
+          <div className="flex gap-4 mb-4">
+            <div className="bg-zinc-800 text-white p-4 rounded-xl shadow-lg flex gap-8">
+              <div className="flex flex-col items-center">
+                <span className="text-[10px] uppercase font-bold text-zinc-400">
+                  AI 2 Points
+                </span>
+                <span className="text-2xl font-black">ETA</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-[10px] uppercase font-bold text-zinc-400">
+                  AI 2 Train Pieces
+                </span>
+                <span className="text-2xl font-black">ETA</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-[10px] uppercase font-bold text-zinc-400">
+                  AI 2 Train Cards
+                </span>
+                <span className="text-2xl font-black">ETA</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-[10px] uppercase font-bold text-zinc-400">
+                  AI 2 Tickets
+                </span>
+                <span className="text-2xl font-black">ETA</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-4 justify-center mb-4">
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              <span className="font-bold text-zinc-700 dark:text-zinc-200">
+                AI last action:
+              </span>{" "}
+              ETA
+            </p>
+          </div>
+        </div>
       </div>
 
       <main className="w-full flex justify-center gap-8 p-4">
