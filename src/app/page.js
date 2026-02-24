@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   TrainTile,
   TrainTileCont,
@@ -460,7 +460,7 @@ export default function Home() {
     setPlayerTurnActions((prev) => [...prev, action]);
   };
 
-  const playAiTurn = async () => {
+  const playAiTurn = useCallback(async () => {
     if (isAiThinkingRef.current || gameOver || !isAiTurn) return;
     isAiThinkingRef.current = true;
 
@@ -547,7 +547,24 @@ export default function Home() {
     } finally {
       isAiThinkingRef.current = false;
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    gameOver,
+    isAiTurn,
+    aiHand,
+    aiTickets,
+    aiScore,
+    aiPlacedTiles,
+    cardsDrawn,
+    playerHand,
+    playerTickets,
+    score,
+    playerTurnActions,
+    displayCards,
+    trainDeck,
+    ticketDeck,
+    claimedRoutes,
+  ]);
 
   const executeAiAction = (action) => {
     console.log("AI Action:", action);
@@ -577,7 +594,7 @@ export default function Home() {
       lastProcessedAiAction.current = currentKey;
       playAiTurn();
     }
-  }, [isAiTurn, turn, cardsDrawn, gameOver]);
+  }, [isAiTurn, turn, cardsDrawn, gameOver, playAiTurn]);
 
   const drawAiFromDisplay = (index) => {
     if (gameOver || !isAiTurn || cardsDrawn >= 2) {
@@ -942,7 +959,7 @@ export default function Home() {
 
       <main className="w-full flex justify-center gap-8 p-4">
         <div className="flex flex-col items-center">
-          <div className="relative w-200 h-150 overflow-auto shadow-2xl rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-zinc-200 dark:bg-zinc-800">
+          <div className="relative w-200 h-150 overflow-auto shadow-2xl rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-black">
             <div
               className="relative min-w-300 aspect-18/10  bg-black"
               style={{ paddingBottom: "64px" }}

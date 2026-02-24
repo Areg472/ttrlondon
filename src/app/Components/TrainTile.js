@@ -11,15 +11,15 @@ export const PlayerHandContext = React.createContext({
   black: 0,
   rainbow: 0,
   placedTiles: 0,
-  spendCards: () => {},
-  addPoints: () => {},
-  canPlaceMore: () => true,
-  incrementPlaced: () => {},
+  spendCards: (_deduction) => {},
+  addPoints: (_points) => {},
+  canPlaceMore: (_needed) => true,
+  incrementPlaced: (_n) => {},
   incrementTurn: () => {},
   cardsDrawn: 0,
   isAiTurn: false,
   claimedRoutes: {},
-  claimRoute: () => {},
+  claimRoute: (_routeId, _side, _type) => {},
 });
 
 export function TrainTileCont({
