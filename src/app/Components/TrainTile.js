@@ -195,7 +195,14 @@ export function TrainTileCont({
 
     return React.cloneElement(first, {
       trainTrigger: currentTrigger,
-      trainColor: claimType && claimType !== "player" ? "#E6E6FA" : "#008080",
+      trainColor:
+        claimType === "ai0"
+          ? "#E6E6FA"
+          : claimType === "ai1"
+            ? "#9D6192"
+            : claimType === "ai2"
+              ? "#D6A77B"
+              : "#008080",
       childPosition,
       index,
       disabled,

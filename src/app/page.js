@@ -8,6 +8,7 @@ import {
   INITIAL_TRAIN_CARDS_DECK,
   ROUTES,
 } from "./data/gameData";
+import { RulesPanel } from "./Components/RulesPanel";
 import { StartScreen } from "./Components/StartScreen";
 import { GameOverModal } from "./Components/GameOverModal";
 import { GameHeader } from "./Components/GameHeader";
@@ -96,6 +97,7 @@ export default function Home() {
     };
   };
 
+  const [rulesShown, setRulesShown] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
   const [initialState, setInitialState] = useState(null);
 
@@ -1017,6 +1019,10 @@ export default function Home() {
       drawAiFromDeck();
     }
   };
+
+  if (!rulesShown) {
+    return <RulesPanel onFinish={() => setRulesShown(true)} />;
+  }
 
   if (!gameStarted) {
     return <StartScreen onStart={startGame} />;
