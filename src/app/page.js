@@ -100,6 +100,7 @@ export default function Home() {
   const [rulesShown, setRulesShown] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
   const [initialState, setInitialState] = useState(null);
+  const [aiSelectingTickets, setAiSelectingTickets] = useState(false);
 
   const [playerHand, setPlayerHand] = useState({
     orange: 0,
@@ -143,7 +144,41 @@ export default function Home() {
   const isAiTurn = currentAiIndex >= 0;
   const isPersonTurn = currentAiIndex < 0;
 
-  const startGame = (n) => {
+  const askAiToSelectTickets = async (drawnTickets, hand) => {
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are an AI playing Ticket to Ride London. Respond ONLY with a valid JSON object. Do not include any other text.",
+            },
+            {
+              role: "user",
+              content: `You are choosing starting tickets. You have been dealt these 2 tickets: ${JSON.stringify(drawnTickets)}. Your starting hand is: ${JSON.stringify(hand)}. You MUST keep at least 1 ticket. Choose which tickets to keep based on which are easier to complete given your hand and which score more points. Respond with: { "keepIndices": [0] } or { "keepIndices": [0, 1] }`,
+            },
+          ],
+        }),
+      });
+      const data = await response.json();
+      const content = data.text || "";
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (
+          Array.isArray(parsed.keepIndices) &&
+          parsed.keepIndices.length >= 1
+        ) {
+          return parsed.keepIndices.filter((i) => i === 0 || i === 1);
+        }
+      }
+    } catch (_) {}
+    return [0];
+  };
+
+  const startGame = async (n) => {
     const state = getInitialGameState(n);
     setNumAIs(n);
     setInitialState(state);
@@ -151,14 +186,23 @@ export default function Home() {
     setAiHands(state.aiHands);
     setAiScores(Array(n).fill(0));
     setAiPlacedTiles(Array(n).fill(0));
-    setAiTickets(state.aiTickets);
     setAiLastActions(Array(n).fill(null));
     setDiscardPile(state.discard);
     setDisplayCards(state.display);
     setTrainDeck(state.trainDeck);
     setTicketDeck(state.ticketDeck);
     setDrawingTickets(state.drawingTickets);
+    setAiSelectingTickets(true);
     setGameStarted(true);
+
+    const chosenTickets = [];
+    for (let i = 0; i < n; i++) {
+      const drawn = state.aiTickets[i];
+      const kept = await askAiToSelectTickets(drawn, state.aiHands[i]);
+      chosenTickets.push(kept.map((idx) => drawn[idx]));
+    }
+    setAiTickets(chosenTickets);
+    setAiSelectingTickets(false);
   };
 
   const drawFromDisplay = (index) => {
@@ -715,12 +759,15 @@ export default function Home() {
               - completed: whether you already finished that ticket
               - usefulRoutes: routes on the shortest path between the ticket cities (unclaimed)
               - affordableRoutes: subset of usefulRoutes you can claim RIGHT NOW with your current hand
+
+              PLAYER INTERFERENCE: Check playerTurnActions. If the player claimed a route (action: "claim_route") that appears in any of your usefulRoutes, that route is now blocked. Re-evaluate your strategy: find an alternative route for that ticket, or if no alternative exists, consider drawing new tickets instead.
               
               DECISION PRIORITY (follow in order):
               1. If cardsDrawn is 0 AND affordableRoutes is non-empty for any incomplete ticket: CLAIM one of those routes using place_tiles. Pick the highest-points ticket first. Use the route's color field as the "color" parameter.
               2. If cardsDrawn is 0 AND usefulRoutes is non-empty but none are affordable: DRAW cards. Prefer drawing from display a card color that matches a color needed by your usefulRoutes. Otherwise draw from deck.
               3. If cardsDrawn is 1: draw one more card (draw_display non-rainbow or draw_deck).
-              4. Only draw tickets if you have no incomplete tickets and the ticket deck is non-empty.
+              4. If cardsDrawn is 0 AND all incomplete tickets have no usefulRoutes (all paths blocked by opponents) AND ticketDeckCount > 0: draw_tickets to get new options.
+              5. Otherwise draw cards from deck.
               
               Available actions: 
               1. { "action": "draw_display", "index": number } - draw a card from display (index 0-4). If you draw a rainbow (and cardsDrawn is 0), turn ends. If you draw a non-rainbow, you can draw again.
@@ -911,7 +958,7 @@ export default function Home() {
     }
   };
 
-  const drawAiTickets = () => {
+  const drawAiTickets = async () => {
     if (gameOver || !isAiTurn || cardsDrawn > 0) {
       incrementTurn();
       return;
@@ -924,14 +971,49 @@ export default function Home() {
     setTicketDeck((prev) => prev.slice(2));
 
     const aidx3 = currentAiIndex;
+    const currentTickets = aiTickets[aidx3] || [];
+    const currentHand = aiHands[aidx3] || {};
+
+    let keepIndices = [0];
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are an AI playing Ticket to Ride London. Respond ONLY with a valid JSON object. Do not include any other text.",
+            },
+            {
+              role: "user",
+              content: `You are choosing new tickets mid-game. Your current tickets: ${JSON.stringify(currentTickets)}. You drew these 2 new tickets: ${JSON.stringify(drawn)}. Your hand: ${JSON.stringify(currentHand)}. You MUST keep at least 1 of the new tickets. Choose which new tickets to keep based on synergy with existing tickets, your hand, and point value. Respond with: { "keepIndices": [0] } or { "keepIndices": [0, 1] }`,
+            },
+          ],
+        }),
+      });
+      const data = await response.json();
+      const content = data.text || "";
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (
+          Array.isArray(parsed.keepIndices) &&
+          parsed.keepIndices.length >= 1
+        ) {
+          keepIndices = parsed.keepIndices.filter((i) => i === 0 || i === 1);
+          if (keepIndices.length === 0) keepIndices = [0];
+        }
+      }
+    } catch (_) {}
+
+    const keptTickets = keepIndices.map((i) => drawn[i]);
     setAiTickets((prev) =>
-      prev.map((t, i) => (i === aidx3 ? [...t, ...drawn] : t)),
+      prev.map((t, i) => (i === aidx3 ? [...t, ...keptTickets] : t)),
     );
     setAiLastActions((prev) =>
       prev.map((a, i) =>
-        i === currentAiIndex
-          ? `Drew ${drawn.length} ticket card${drawn.length !== 1 ? "s" : ""}`
-          : a,
+        i === currentAiIndex ? `Drew tickets, kept ${keptTickets.length}` : a,
       ),
     );
     if (!gameOver) incrementTurn();
@@ -1030,6 +1112,18 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen flex-col items-center bg-zinc-100 font-sans dark:bg-zinc-900 p-8">
+      {aiSelectingTickets && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-white dark:bg-zinc-800 rounded-3xl p-10 shadow-2xl flex flex-col items-center gap-4">
+            <div className="text-2xl font-black text-zinc-800 dark:text-zinc-100">
+              AIs are choosing tickets…
+            </div>
+            <div className="text-zinc-500 dark:text-zinc-400 text-sm">
+              Please wait
+            </div>
+          </div>
+        </div>
+      )}
       {gameOver && (
         <GameOverModal
           score={score}
@@ -1079,7 +1173,7 @@ export default function Home() {
         incrementPlaced={incrementPlaced}
         incrementTurn={incrementTurn}
         cardsDrawn={cardsDrawn}
-        isAiTurn={isAiTurn}
+        isAiTurn={isAiTurn || aiSelectingTickets}
         numAIs={numAIs}
         claimedRoutes={claimedRoutes}
         claimRoute={claimRoute}
