@@ -36,7 +36,9 @@ const checkThreeRainbows = (currentDisplay, currentDeck, currentDiscard) => {
 };
 
 export default function Home() {
-  const getInitialGameState = () => {
+  const [numAIs, setNumAIs] = useState(null);
+
+  const getInitialGameState = (n) => {
     const initialTrainDeck = [...INITIAL_TRAIN_CARDS_DECK];
     const {
       display: initialDisplay,
@@ -48,16 +50,11 @@ export default function Home() {
       [],
     );
 
-    const initialTicketDeck = [...TICKETS];
+    const initialTicketDeck = shuffle([...TICKETS]);
     const playerInitialTickets = initialTicketDeck.slice(0, 2);
-    const aiInitialTickets = initialTicketDeck.slice(2, 4);
-    const remainingTicketDeck = initialTicketDeck.slice(4);
+    const remainingTicketDeck = initialTicketDeck.slice(2 + n * 2);
 
-    const playerInitialTrain = initialDeck.slice(0, 2);
-    const aiInitialTrain = initialDeck.slice(2, 4);
-    const remainingTrainDeck = initialDeck.slice(4);
-
-    const initialPlayerHand = {
+    const emptyHand = {
       orange: 0,
       blue: 0,
       black: 0,
@@ -66,49 +63,71 @@ export default function Home() {
       green: 0,
       rainbow: 0,
     };
-    const initialAiHand = { ...initialPlayerHand };
 
+    const playerInitialTrain = initialDeck.slice(0, 2);
+    const initialPlayerHand = { ...emptyHand };
     playerInitialTrain.forEach((c) => {
       const key = c.rainbow ? "rainbow" : c.color;
       initialPlayerHand[key]++;
     });
-    aiInitialTrain.forEach((c) => {
-      const key = c.rainbow ? "rainbow" : c.color;
-      initialAiHand[key]++;
-    });
+
+    const aiHands = [];
+    const aiTicketsArr = [];
+    let deckOffset = 2;
+    for (let i = 0; i < n; i++) {
+      const aiTrain = initialDeck.slice(deckOffset, deckOffset + 2);
+      deckOffset += 2;
+      const hand = { ...emptyHand };
+      aiTrain.forEach((c) => {
+        const key = c.rainbow ? "rainbow" : c.color;
+        hand[key]++;
+      });
+      aiHands.push(hand);
+      aiTicketsArr.push(initialTicketDeck.slice(2 + i * 2, 2 + i * 2 + 2));
+    }
+
+    const remainingTrainDeck = initialDeck.slice(deckOffset);
 
     return {
       display: initialDisplay,
       trainDeck: remainingTrainDeck,
       discard: initialDiscard,
       playerHand: initialPlayerHand,
-      aiHand: initialAiHand,
+      aiHands,
       drawingTickets: playerInitialTickets,
-      aiTickets: aiInitialTickets,
+      aiTickets: aiTicketsArr,
       ticketDeck: remainingTicketDeck,
     };
   };
 
-  const [initialState] = useState(getInitialGameState);
+  const [gameStarted, setGameStarted] = useState(false);
+  const [initialState, setInitialState] = useState(null);
 
-  const [playerHand, setPlayerHand] = useState(initialState.playerHand);
-  const [aiHand, setAiHand] = useState(initialState.aiHand);
+  const [playerHand, setPlayerHand] = useState({
+    orange: 0,
+    blue: 0,
+    black: 0,
+    red: 0,
+    yellow: 0,
+    green: 0,
+    rainbow: 0,
+  });
+  const [aiHands, setAiHands] = useState([]);
   const [score, setScore] = useState(0);
-  const [aiScore, setAiScore] = useState(0);
+  const [aiScores, setAiScores] = useState([]);
   const [turn, setTurn] = useState(1);
-  const [isAiTurn, setIsAiTurn] = useState(false);
+  // currentAiIndex: -1 = player turn, 0..numAIs-1 = AI turn
+  const [currentAiIndex, setCurrentAiIndex] = useState(-1);
   const [cardsDrawn, setCardsDrawn] = useState(0);
   const [placedTiles, setPlacedTiles] = useState(0);
-  const [aiPlacedTiles, setAiPlacedTiles] = useState(0);
-  const [discardPile, setDiscardPile] = useState(initialState.discard);
-  const [displayCards, setDisplayCards] = useState(initialState.display);
-  const [trainDeck, setTrainDeck] = useState(initialState.trainDeck);
-  const [ticketDeck, setTicketDeck] = useState(initialState.ticketDeck);
+  const [aiPlacedTiles, setAiPlacedTiles] = useState([]);
+  const [discardPile, setDiscardPile] = useState([]);
+  const [displayCards, setDisplayCards] = useState([]);
+  const [trainDeck, setTrainDeck] = useState([]);
+  const [ticketDeck, setTicketDeck] = useState([]);
   const [playerTickets, setPlayerTickets] = useState([]);
-  const [aiTickets, setAiTickets] = useState(initialState.aiTickets);
-  const [drawingTickets, setDrawingTickets] = useState(
-    initialState.drawingTickets,
-  );
+  const [aiTickets, setAiTickets] = useState([]);
+  const [drawingTickets, setDrawingTickets] = useState(null);
   const [claimedRoutes, setClaimedRoutes] = useState({});
   const [playerTurnActions, setPlayerTurnActions] = useState([]);
 
@@ -120,9 +139,30 @@ export default function Home() {
   const [playerNumberBonuses, setPlayerNumberBonuses] = useState([]);
   const [aiNumberBonuses, setAiNumberBonuses] = useState([]);
   const [finalBonusesApplied, setFinalBonusesApplied] = useState(false);
-  const [aiLastAction, setAiLastAction] = useState(null);
+  const [aiLastActions, setAiLastActions] = useState([]);
   const isAiThinkingRef = useRef(false);
   const lastProcessedAiAction = useRef("");
+
+  const isAiTurn = currentAiIndex >= 0;
+  const isPersonTurn = currentAiIndex < 0;
+
+  const startGame = (n) => {
+    const state = getInitialGameState(n);
+    setNumAIs(n);
+    setInitialState(state);
+    setPlayerHand(state.playerHand);
+    setAiHands(state.aiHands);
+    setAiScores(Array(n).fill(0));
+    setAiPlacedTiles(Array(n).fill(0));
+    setAiTickets(state.aiTickets);
+    setAiLastActions(Array(n).fill(null));
+    setDiscardPile(state.discard);
+    setDisplayCards(state.display);
+    setTrainDeck(state.trainDeck);
+    setTicketDeck(state.ticketDeck);
+    setDrawingTickets(state.drawingTickets);
+    setGameStarted(true);
+  };
 
   const drawFromDisplay = (index) => {
     if (gameOver || isAiTurn || cardsDrawn >= 2 || drawingTickets) return;
@@ -141,6 +181,19 @@ export default function Home() {
       [colorKey]: (prev[colorKey] ?? 0) + 1,
     }));
 
+    let nextDisplay = [...displayCards],
+      nextDeck = [...trainDeck],
+      nextDiscard = [...discardPile];
+    if (nextDeck.length === 0 && nextDiscard.length > 0) {
+      nextDeck = shuffle(nextDiscard);
+      nextDiscard = [];
+    }
+    if (nextDeck.length > 0) {
+      nextDisplay[index] = nextDeck[0];
+      nextDeck = nextDeck.slice(1);
+    } else {
+      nextDisplay.splice(index, 1);
+    }
     const result = checkThreeRainbows(nextDisplay, nextDeck, nextDiscard);
     setDisplayCards(result.display);
     setTrainDeck(result.deck);
@@ -185,8 +238,26 @@ export default function Home() {
   };
 
   const spendCards = (deduction) => {
-    const setHand = isAiTurn ? setAiHand : setPlayerHand;
-    setHand((prev) => {
+    if (isAiTurn) {
+      const idx = currentAiIndex;
+      setAiHands((prev) => {
+        const next = prev.map((h, i) => {
+          if (i !== idx) return h;
+          const nh = { ...h };
+          const spent = [];
+          for (const [k, v] of Object.entries(deduction || {})) {
+            nh[k] = Math.max(0, (nh[k] ?? 0) - v);
+            for (let j = 0; j < v; j++)
+              spent.push(k === "rainbow" ? { rainbow: true } : { color: k });
+          }
+          setDiscardPile((prevDiscard) => [...prevDiscard, ...spent]);
+          return nh;
+        });
+        return next;
+      });
+      return;
+    }
+    setPlayerHand((prev) => {
       const next = { ...prev },
         spent = [];
       for (const [k, v] of Object.entries(deduction || {})) {
@@ -208,10 +279,15 @@ export default function Home() {
       setFinalTurnsLeft((prev) => prev - 1);
     }
 
-    if (!isAiTurn) {
-      setIsAiTurn(true);
+    if (currentAiIndex < 0) {
+      // player just finished, move to first AI
+      setCurrentAiIndex(0);
+    } else if (currentAiIndex < numAIs - 1) {
+      // move to next AI
+      setCurrentAiIndex((prev) => prev + 1);
     } else {
-      setIsAiTurn(false);
+      // last AI finished, back to player
+      setCurrentAiIndex(-1);
       setTurn((prev) => prev + 1);
       setPlayerTurnActions([]);
     }
@@ -220,7 +296,8 @@ export default function Home() {
 
   const addPoints = (points) => {
     if (isAiTurn) {
-      setAiScore((prev) => prev + points);
+      const idx = currentAiIndex;
+      setAiScores((prev) => prev.map((s, i) => (i === idx ? s + points : s)));
     } else {
       setScore((prev) => prev + points);
     }
@@ -229,22 +306,22 @@ export default function Home() {
   const incrementPlaced = (n) => {
     const tilesToAdd = Number(n) || 0;
     if (isAiTurn) {
+      const idx = currentAiIndex;
       setAiPlacedTiles((prev) => {
-        const nextPlaced = prev + tilesToAdd;
-
+        const next = prev.map((p, i) => (i === idx ? p + tilesToAdd : p));
+        const nextPlaced = next[idx];
         if (nextPlaced >= 15 && !lastRoundTriggered) {
           setLastRoundTriggered(true);
-          setFinalTurnsLeft(2);
+          setFinalTurnsLeft(numAIs + 1);
         }
-        return nextPlaced;
+        return next;
       });
     } else {
       setPlacedTiles((prev) => {
         const nextPlaced = prev + tilesToAdd;
-
         if (nextPlaced >= 15 && !lastRoundTriggered) {
           setLastRoundTriggered(true);
-          setFinalTurnsLeft(2);
+          setFinalTurnsLeft(numAIs + 1);
         }
         return nextPlaced;
       });
@@ -270,7 +347,9 @@ export default function Home() {
 
   const canPlaceMore = (needed) => {
     const n = Number(needed) || 0;
-    const currentPlaced = isAiTurn ? aiPlacedTiles : placedTiles;
+    const currentPlaced = isAiTurn
+      ? aiPlacedTiles[currentAiIndex] || 0
+      : placedTiles;
     return currentPlaced + n <= 17;
   };
 
@@ -278,6 +357,7 @@ export default function Home() {
     if (type === "player") {
       logPlayerAction({ action: "claim_route", routeId, side });
     }
+    // type is "player" or "ai0", "ai1", etc.
     setClaimedRoutes((prev) => ({
       ...prev,
       [`${routeId}_${side}`]: type,
@@ -403,49 +483,61 @@ export default function Home() {
   const applyNumberBonuses = () => {
     const groups = groupCitiesByNumber();
     const playerEdges = getClaimedEdges("player");
-    const aiEdges = getClaimedEdges("ai");
 
     const playerNums = [];
-    const aiNums = [];
-
     for (const [num, names] of groups.entries()) {
       if (names.length < 2) continue;
       if (isSetFullyConnected(playerEdges, names)) playerNums.push(num);
-      if (isSetFullyConnected(aiEdges, names)) aiNums.push(num);
     }
 
     const add = (arr) => arr.reduce((a, b) => a + b, 0);
-
     if (playerNums.length) setScore((prev) => prev + add(playerNums));
-    if (aiNums.length) setAiScore((prev) => prev + add(aiNums));
-
     setPlayerNumberBonuses(playerNums);
-    setAiNumberBonuses(aiNums);
 
-    // Apply ticket scoring
+    const allAiNums = [];
+    const allAiResults = [];
+    for (let i = 0; i < (numAIs || 0); i++) {
+      const aiEdges = getClaimedEdges(`ai${i}`);
+      const aiNums = [];
+      for (const [num, names] of groups.entries()) {
+        if (names.length < 2) continue;
+        if (isSetFullyConnected(aiEdges, names)) aiNums.push(num);
+      }
+      allAiNums.push(aiNums);
+      if (aiNums.length)
+        setAiScores((prev) =>
+          prev.map((s, idx) => (idx === i ? s + add(aiNums) : s)),
+        );
+
+      const aiResults = (aiTickets[i] || []).map((t) => {
+        const completed = isConnectedViaEdges(aiEdges, t.cityA, t.cityB);
+        return { ...t, completed };
+      });
+      allAiResults.push(aiResults);
+      const aiTicketDelta = aiResults.reduce(
+        (sum, t) => sum + (t.completed ? t.points : -t.points),
+        0,
+      );
+      if (aiTicketDelta)
+        setAiScores((prev) =>
+          prev.map((s, idx) => (idx === i ? s + aiTicketDelta : s)),
+        );
+    }
+
+    setAiNumberBonuses(allAiNums);
+
+    // Apply player ticket scoring
     const playerResults = playerTickets.map((t) => {
       const completed = isConnectedViaEdges(playerEdges, t.cityA, t.cityB);
       return { ...t, completed };
     });
-    const aiResults = aiTickets.map((t) => {
-      const completed = isConnectedViaEdges(aiEdges, t.cityA, t.cityB);
-      return { ...t, completed };
-    });
-
     const playerTicketDelta = playerResults.reduce(
       (sum, t) => sum + (t.completed ? t.points : -t.points),
       0,
     );
-    const aiTicketDelta = aiResults.reduce(
-      (sum, t) => sum + (t.completed ? t.points : -t.points),
-      0,
-    );
-
     setScore((prev) => prev + playerTicketDelta);
-    setAiScore((prev) => prev + aiTicketDelta);
-
     setPlayerTicketResults(playerResults);
-    setAiTicketResults(aiResults);
+    setAiTicketResults(allAiResults);
   };
 
   useEffect(() => {
@@ -464,11 +556,13 @@ export default function Home() {
     if (isAiThinkingRef.current || gameOver || !isAiTurn) return;
     isAiThinkingRef.current = true;
 
+    const idx = currentAiIndex;
     const gameState = {
-      aiHand,
-      aiTickets,
-      aiScore,
-      aiPlacedTiles,
+      aiHand: aiHands[idx] || {},
+      aiTickets: aiTickets[idx] || [],
+      aiScore: aiScores[idx] || 0,
+      aiPlacedTiles: aiPlacedTiles[idx] || 0,
+      aiIndex: idx,
       cardsDrawn,
       playerHandCount: Object.values(playerHand).reduce((a, b) => a + b, 0),
       playerTicketsCount: playerTickets.length,
@@ -551,9 +645,10 @@ export default function Home() {
   }, [
     gameOver,
     isAiTurn,
-    aiHand,
+    currentAiIndex,
+    aiHands,
     aiTickets,
-    aiScore,
+    aiScores,
     aiPlacedTiles,
     cardsDrawn,
     playerHand,
@@ -589,12 +684,12 @@ export default function Home() {
   useEffect(() => {
     if (gameOver || !isAiTurn) return;
 
-    const currentKey = `${turn}-${cardsDrawn}`;
+    const currentKey = `${turn}-${currentAiIndex}-${cardsDrawn}`;
     if (lastProcessedAiAction.current !== currentKey) {
       lastProcessedAiAction.current = currentKey;
       playAiTurn();
     }
-  }, [isAiTurn, turn, cardsDrawn, gameOver, playAiTurn]);
+  }, [isAiTurn, currentAiIndex, turn, cardsDrawn, gameOver, playAiTurn]);
 
   const drawAiFromDisplay = (index) => {
     if (gameOver || !isAiTurn || cardsDrawn >= 2) {
@@ -608,10 +703,12 @@ export default function Home() {
     }
 
     const colorKey = card.rainbow ? "rainbow" : card.color;
-    setAiHand((prev) => ({
-      ...prev,
-      [colorKey]: (prev[colorKey] ?? 0) + 1,
-    }));
+    const aidx = currentAiIndex;
+    setAiHands((prev) =>
+      prev.map((h, i) =>
+        i === aidx ? { ...h, [colorKey]: (h[colorKey] ?? 0) + 1 } : h,
+      ),
+    );
 
     let nextDisplay = [...displayCards],
       nextDeck = [...trainDeck],
@@ -634,7 +731,9 @@ export default function Home() {
     setTrainDeck(result.deck);
     setDiscardPile(result.discard);
 
-    setAiLastAction("Drew from the display");
+    setAiLastActions((prev) =>
+      prev.map((a, i) => (i === currentAiIndex ? "Drew from the display" : a)),
+    );
     const draws = card.rainbow ? 2 : 1;
     const total = cardsDrawn + draws;
     if (total >= 2) {
@@ -661,13 +760,17 @@ export default function Home() {
     }
     const card = currentDeck[0];
     const colorKey = card.rainbow ? "rainbow" : card.color;
-    setAiHand((prev) => ({
-      ...prev,
-      [colorKey]: (prev[colorKey] ?? 0) + 1,
-    }));
+    const aidx2 = currentAiIndex;
+    setAiHands((prev) =>
+      prev.map((h, i) =>
+        i === aidx2 ? { ...h, [colorKey]: (h[colorKey] ?? 0) + 1 } : h,
+      ),
+    );
     setTrainDeck(currentDeck.slice(1));
     setDiscardPile(currentDiscard);
-    setAiLastAction("Drew from the deck");
+    setAiLastActions((prev) =>
+      prev.map((a, i) => (i === currentAiIndex ? "Drew from the deck" : a)),
+    );
     const total = cardsDrawn + 1;
     if (total >= 2) {
       incrementTurn();
@@ -688,9 +791,16 @@ export default function Home() {
     const drawn = ticketDeck.slice(0, 2);
     setTicketDeck((prev) => prev.slice(2));
 
-    setAiTickets((prev) => [...prev, ...drawn]);
-    setAiLastAction(
-      `Drew ${drawn.length} ticket card${drawn.length !== 1 ? "s" : ""}`,
+    const aidx3 = currentAiIndex;
+    setAiTickets((prev) =>
+      prev.map((t, i) => (i === aidx3 ? [...t, ...drawn] : t)),
+    );
+    setAiLastActions((prev) =>
+      prev.map((a, i) =>
+        i === currentAiIndex
+          ? `Drew ${drawn.length} ticket card${drawn.length !== 1 ? "s" : ""}`
+          : a,
+      ),
     );
     if (!gameOver) incrementTurn();
   };
@@ -708,22 +818,28 @@ export default function Home() {
 
     if (route.isDouble) {
       const otherSide = side === "even" ? "odd" : "even";
-      if (claimedRoutes[`${routeId}_${otherSide}`]) {
-        drawAiFromDeck();
-        return;
+      const otherClaimer = claimedRoutes[`${routeId}_${otherSide}`];
+      if (otherClaimer) {
+        // With 1 AI: block both sides once one is taken
+        // With 2+ AIs: only block if this same AI already claimed the other side
+        if (numAIs <= 1 || otherClaimer === `ai${currentAiIndex}`) {
+          drawAiFromDeck();
+          return;
+        }
       }
     }
 
     const length = route.trainCount;
-    const wilds = aiHand.rainbow;
-    const have = aiHand[color] || 0;
+    const currentAiHand = aiHands[currentAiIndex] || {};
+    const wilds = currentAiHand.rainbow || 0;
+    const have = currentAiHand[color] || 0;
 
     let deduction = null;
     if (color === "gray") {
       const baseColors = ["orange", "yellow", "blue", "green", "black", "red"];
       let best = null;
       for (const c of baseColors) {
-        const cHave = aiHand[c] || 0;
+        const cHave = currentAiHand[c] || 0;
         const useColor = Math.min(cHave, length);
         const needWild = length - useColor;
         if (needWild <= wilds) {
@@ -759,9 +875,13 @@ export default function Home() {
       const points = { 1: 1, 2: 2, 3: 4, 4: 7 }[length] || 0;
       addPoints(points);
       incrementPlaced(length);
-      claimRoute(routeId, side, "ai");
-      setAiLastAction(
-        `Claimed route (${length} train${length !== 1 ? "s" : ""}, ${color} cards)`,
+      claimRoute(routeId, side, `ai${currentAiIndex}`);
+      setAiLastActions((prev) =>
+        prev.map((a, i) =>
+          i === currentAiIndex
+            ? `Claimed route (${length} train${length !== 1 ? "s" : ""}, ${color} cards)`
+            : a,
+        ),
       );
       incrementTurn();
     } else {
@@ -769,6 +889,44 @@ export default function Home() {
       drawAiFromDeck();
     }
   };
+
+  if (!gameStarted) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-100 font-sans dark:bg-zinc-900 p-8">
+        <div className="bg-white dark:bg-zinc-900 p-12 rounded-[40px] shadow-2xl border border-zinc-200 dark:border-zinc-800 flex flex-col items-center max-w-md w-full text-center">
+          <h1 className="text-4xl font-black mb-2 text-zinc-800 dark:text-zinc-100">
+            Ticket to Ride
+          </h1>
+          <p className="text-zinc-400 mb-10 uppercase tracking-[0.2em] font-bold text-sm">
+            London
+          </p>
+          <p className="text-zinc-600 dark:text-zinc-300 font-semibold mb-6 text-lg">
+            How many AI opponents?
+          </p>
+          <div className="flex gap-4">
+            {[1, 2, 3].map((n) => (
+              <button
+                key={n}
+                onClick={() => startGame(n)}
+                className="w-16 h-16 cursor-pointer rounded-2xl bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-900 text-2xl font-black hover:scale-110 transition-transform shadow-lg"
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const allScores = [
+    { label: "Player", score },
+    ...aiScores.map((s, i) => ({ label: `AI ${i + 1}`, score: s })),
+  ];
+  const winner = allScores.reduce(
+    (best, cur) => (cur.score > best.score ? cur : best),
+    allScores[0],
+  );
 
   return (
     <div className="flex min-h-screen flex-col items-center bg-zinc-100 font-sans dark:bg-zinc-900 p-8">
@@ -782,7 +940,7 @@ export default function Home() {
               Final Results
             </p>
 
-            <div className="flex gap-12 mb-12">
+            <div className="flex gap-8 mb-12 flex-wrap justify-center">
               <div className="flex flex-col">
                 <span className="text-sm text-zinc-400 uppercase font-bold mb-1">
                   Player
@@ -791,18 +949,26 @@ export default function Home() {
                   {score}
                 </span>
               </div>
-              <div className="w-px h-16 bg-zinc-200 dark:bg-zinc-800 self-center" />
-              <div className="flex flex-col">
-                <span className="text-sm text-zinc-400 uppercase font-bold mb-1">
-                  AI
-                </span>
-                <span className="text-6xl font-black text-zinc-800 dark:text-zinc-100">
-                  {aiScore}
-                </span>
-              </div>
+              {aiScores.map((s, i) => (
+                <>
+                  <div
+                    key={`sep-${i}`}
+                    className="w-px h-16 bg-zinc-200 dark:bg-zinc-800 self-center"
+                  />
+                  <div key={`ai-${i}`} className="flex flex-col">
+                    <span className="text-sm text-zinc-400 uppercase font-bold mb-1">
+                      AI {i + 1}
+                    </span>
+                    <span className="text-6xl font-black text-zinc-800 dark:text-zinc-100">
+                      {s}
+                    </span>
+                  </div>
+                </>
+              ))}
             </div>
 
-            {(playerNumberBonuses.length > 0 || aiNumberBonuses.length > 0) && (
+            {(playerNumberBonuses.length > 0 ||
+              aiNumberBonuses.some((a) => a.length > 0)) && (
               <div className="mb-6 text-sm text-zinc-600 dark:text-zinc-300 text-left w-full">
                 <div className="font-semibold mb-2">City-number bonuses</div>
                 <div className="mb-1">
@@ -816,21 +982,24 @@ export default function Home() {
                     </span>
                   )}
                 </div>
-                <div>
-                  AI:{" "}
-                  {aiNumberBonuses.length > 0
-                    ? [...aiNumberBonuses].sort((a, b) => a - b).join(", ")
-                    : "—"}
-                  {aiNumberBonuses.length > 0 && (
-                    <span className="ml-2 text-zinc-500">
-                      (+{aiNumberBonuses.reduce((a, b) => a + b, 0)})
-                    </span>
-                  )}
-                </div>
+                {aiNumberBonuses.map((nums, i) => (
+                  <div key={i}>
+                    AI {i + 1}:{" "}
+                    {nums.length > 0
+                      ? [...nums].sort((a, b) => a - b).join(", ")
+                      : "—"}
+                    {nums.length > 0 && (
+                      <span className="ml-2 text-zinc-500">
+                        (+{nums.reduce((a, b) => a + b, 0)})
+                      </span>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
 
-            {(playerTicketResults.length > 0 || aiTicketResults.length > 0) && (
+            {(playerTicketResults.length > 0 ||
+              aiTicketResults.some((r) => r.length > 0)) && (
               <div className="mb-6 text-sm text-zinc-600 dark:text-zinc-300 text-left w-full">
                 <div className="font-semibold mb-2">Tickets</div>
                 <div className="mb-1">
@@ -846,29 +1015,32 @@ export default function Home() {
                     </span>
                   ))}
                 </div>
-                <div>
-                  <span className="font-medium">AI:</span>
-                  {aiTicketResults.length === 0 && " —"}
-                  {aiTicketResults.map((t, i) => (
-                    <span
-                      key={i}
-                      className={`ml-2 ${t.completed ? "text-green-500" : "text-red-500"}`}
-                    >
-                      {t.cityA}→{t.cityB} ({t.completed ? "+" : "-"}
-                      {t.points})
-                    </span>
-                  ))}
-                </div>
+                {aiTicketResults.map((results, i) => (
+                  <div key={i}>
+                    <span className="font-medium">AI {i + 1}:</span>
+                    {results.length === 0 && " —"}
+                    {results.map((t, j) => (
+                      <span
+                        key={j}
+                        className={`ml-2 ${t.completed ? "text-green-500" : "text-red-500"}`}
+                      >
+                        {t.cityA}→{t.cityB} ({t.completed ? "+" : "-"}
+                        {t.points})
+                      </span>
+                    ))}
+                  </div>
+                ))}
               </div>
             )}
 
             <div className="text-2xl font-bold mb-8">
-              {score > aiScore ? (
+              {winner.label === "Player" ? (
                 <span className="text-green-500">Player Wins!</span>
-              ) : score < aiScore ? (
-                <span className="text-red-500">AI Wins!</span>
-              ) : (
+              ) : allScores.filter((s) => s.score === winner.score).length >
+                1 ? (
                 <span className="text-blue-500">It&#39;s a Tie!</span>
+              ) : (
+                <span className="text-red-500">{winner.label} Wins!</span>
               )}
             </div>
 
@@ -906,7 +1078,12 @@ export default function Home() {
             </span>
             {isAiTurn && !gameOver && (
               <span className="text-[10px] uppercase font-black text-red-500 mt-1">
-                AI Thinking...
+                AI {currentAiIndex + 1} Thinking...
+              </span>
+            )}
+            {isPersonTurn && !gameOver && (
+              <span className="text-[15px] uppercase font-black text-red-400 mt-1">
+                Your Turn!
               </span>
             )}
             {lastRoundTriggered && !gameOver && (
@@ -918,89 +1095,60 @@ export default function Home() {
         </div>
       </header>
 
-      <div className="flex flex-row space-x-4">
-        <div>
-          <div className="flex gap-4 mb-4">
-            <div className="bg-zinc-800 text-white p-4 rounded-xl shadow-lg flex gap-8">
-              <div className="flex flex-col items-center">
-                <span className="text-[10px] uppercase font-bold text-zinc-400">
-                  AI Points
-                </span>
-                <span className="text-2xl font-black">{aiScore}</span>
-              </div>
-              <div className="flex flex-col items-center">
-                <span className="text-[10px] uppercase font-bold text-zinc-400">
-                  AI Train Pieces
-                </span>
-                <span className="text-2xl font-black">
-                  {17 - aiPlacedTiles}
-                </span>
-              </div>
-              <div className="flex flex-col items-center">
-                <span className="text-[10px] uppercase font-bold text-zinc-400">
-                  AI Train Cards
-                </span>
-                <span className="text-2xl font-black">
-                  {Object.values(aiHand).reduce((a, b) => a + b, 0)}
-                </span>
-              </div>
-              <div className="flex flex-col items-center">
-                <span className="text-[10px] uppercase font-bold text-zinc-400">
-                  AI Tickets
-                </span>
-                <span className="text-2xl font-black">{aiTickets.length}</span>
-              </div>
-            </div>
-          </div>
-          <div className="flex gap-4 justify-center mb-4">
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              <span className="font-bold text-zinc-700 dark:text-zinc-200">
-                AI last action:
-              </span>{" "}
-              {aiLastAction ?? "None yet"}
-            </p>
-          </div>
-        </div>
-        <div>
-          <div className="flex gap-4 mb-4">
-            <div className="bg-zinc-800 text-white p-4 rounded-xl shadow-lg flex gap-8">
-              <div className="flex flex-col items-center">
-                <span className="text-[10px] uppercase font-bold text-zinc-400">
-                  AI 2 Points
-                </span>
-                <span className="text-2xl font-black">ETA</span>
-              </div>
-              <div className="flex flex-col items-center">
-                <span className="text-[10px] uppercase font-bold text-zinc-400">
-                  AI 2 Train Pieces
-                </span>
-                <span className="text-2xl font-black">ETA</span>
-              </div>
-              <div className="flex flex-col items-center">
-                <span className="text-[10px] uppercase font-bold text-zinc-400">
-                  AI 2 Train Cards
-                </span>
-                <span className="text-2xl font-black">ETA</span>
-              </div>
-              <div className="flex flex-col items-center">
-                <span className="text-[10px] uppercase font-bold text-zinc-400">
-                  AI 2 Tickets
-                </span>
-                <span className="text-2xl font-black">ETA</span>
+      <div className="flex flex-row flex-wrap gap-4">
+        {aiHands.map((hand, i) => (
+          <div key={i}>
+            <div className="flex gap-4 mb-4">
+              <div
+                className={`text-white p-4 rounded-xl shadow-lg flex gap-8 ${
+                  currentAiIndex === i && !gameOver
+                    ? "bg-red-700"
+                    : "bg-zinc-800"
+                }`}
+              >
+                <div className="flex flex-col items-center">
+                  <span className="text-[10px] uppercase font-bold text-zinc-400">
+                    AI {i + 1} Points
+                  </span>
+                  <span className="text-2xl font-black">{aiScores[i]}</span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <span className="text-[10px] uppercase font-bold text-zinc-400">
+                    AI {i + 1} Train Pieces
+                  </span>
+                  <span className="text-2xl font-black">
+                    {17 - (aiPlacedTiles[i] || 0)}
+                  </span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <span className="text-[10px] uppercase font-bold text-zinc-400">
+                    AI {i + 1} Train Cards
+                  </span>
+                  <span className="text-2xl font-black">
+                    {Object.values(hand).reduce((a, b) => a + b, 0)}
+                  </span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <span className="text-[10px] uppercase font-bold text-zinc-400">
+                    AI {i + 1} Tickets
+                  </span>
+                  <span className="text-2xl font-black">
+                    {(aiTickets[i] || []).length}
+                  </span>
+                </div>
               </div>
             </div>
+            <div className="flex gap-4 justify-center mb-4">
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                <span className="font-bold text-zinc-700 dark:text-zinc-200">
+                  AI {i + 1} last action:
+                </span>{" "}
+                {aiLastActions[i] ?? "None yet"}
+              </p>
+            </div>
           </div>
-          <div className="flex gap-4 justify-center mb-4">
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              <span className="font-bold text-zinc-700 dark:text-zinc-200">
-                AI last action:
-              </span>{" "}
-              ETA
-            </p>
-          </div>
-        </div>
+        ))}
       </div>
-
       <main className="w-full flex justify-center gap-8 p-4">
         <div className="flex flex-col items-center">
           <div className="relative w-200 h-150 overflow-auto shadow-2xl rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-black">
@@ -1019,6 +1167,7 @@ export default function Home() {
                   incrementTurn,
                   cardsDrawn,
                   isAiTurn,
+                  numAIs,
                   claimedRoutes,
                   claimRoute,
                 }}

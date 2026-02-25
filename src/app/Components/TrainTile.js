@@ -18,6 +18,7 @@ export const PlayerHandContext = React.createContext({
   incrementTurn: () => {},
   cardsDrawn: 0,
   isAiTurn: false,
+  numAIs: 1,
   claimedRoutes: {},
   claimRoute: (_routeId, _side, _type) => {},
 });
@@ -41,7 +42,14 @@ export function TrainTileCont({
     if (playerHand?.claimedRoutes?.[`${routeId}_${side}`]) return false;
     if (isDouble) {
       const otherSide = side === "even" ? "odd" : "even";
-      if (playerHand?.claimedRoutes?.[`${routeId}_${otherSide}`]) return false;
+      const otherClaimer =
+        playerHand?.claimedRoutes?.[`${routeId}_${otherSide}`];
+      if (otherClaimer) {
+        // With 1 AI: neither side of a double can be claimed once one side is taken
+        // With 2+ AIs: only block if the same player already claimed the other side
+        const numAIs = playerHand?.numAIs ?? 1;
+        if (numAIs <= 1 || otherClaimer === "player") return false;
+      }
     }
     if (playerHand?.isAiTurn) return false;
     if (playerHand?.cardsDrawn > 0) return false;
@@ -123,7 +131,12 @@ export function TrainTileCont({
       const side = index % 2 === 0 ? "even" : "odd";
       if (playerHand?.claimedRoutes?.[`${routeId}_${side}`]) return;
       const otherSide = side === "even" ? "odd" : "even";
-      if (playerHand?.claimedRoutes?.[`${routeId}_${otherSide}`]) return;
+      const otherClaimer =
+        playerHand?.claimedRoutes?.[`${routeId}_${otherSide}`];
+      if (otherClaimer) {
+        const numAIs = playerHand?.numAIs ?? 1;
+        if (numAIs <= 1 || otherClaimer === "player") return;
+      }
       if (claimedSide && claimedSide !== side) return;
       if (!claimedSide && !trySpend()) return;
       if (!claimedSide) {
@@ -184,7 +197,7 @@ export function TrainTileCont({
 
     return React.cloneElement(first, {
       trainTrigger: currentTrigger,
-      trainColor: claimType === "ai" ? "#E6E6FA" : "#008080",
+      trainColor: claimType && claimType !== "player" ? "#E6E6FA" : "#008080",
       childPosition,
       index,
       disabled,
