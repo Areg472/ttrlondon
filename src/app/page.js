@@ -777,35 +777,21 @@ export default function Home() {
             },
             {
               role: "user",
-              content: `Current Game State: ${JSON.stringify(gameState)}. 
+              content: `State: ${JSON.stringify(gameState)}
 
-              TICKET STRATEGY (highest priority):
-              Your tickets are analyzed in ticketAnalysis. Each entry shows:
-              - completed: whether you already finished that ticket
-              - usefulRoutes: routes on the shortest path between the ticket cities (unclaimed)
-              - affordableRoutes: subset of usefulRoutes you can claim RIGHT NOW with your current hand
+cardsDrawn=${gameState.cardsDrawn}. Follow EXACTLY:
+${
+  gameState.cardsDrawn === 1
+    ? "cardsDrawn=1: you MUST draw one more card. Use draw_deck OR draw_display (non-rainbow only)."
+    : `cardsDrawn=0 priority order (stop at first that applies):
+1. affordableRoutes non-empty for any incomplete ticket? → place_tiles on that route (highest points ticket first). Use routeId, side, color from affordableRoutes entry.
+2. usefulRoutes non-empty but none affordable? → draw card matching a needed color from display, else draw_deck.
+3. All incomplete tickets have empty usefulRoutes AND ticketDeckCount>0? → draw_tickets.
+4. Otherwise → draw_deck.`
+}
 
-              PLAYER INTERFERENCE: Check playerTurnActions. If the player claimed a route (action: "claim_route") that appears in any of your usefulRoutes, that route is now blocked. Re-evaluate your strategy: find an alternative route for that ticket, or if no alternative exists, consider drawing new tickets instead.
-              
-              DECISION PRIORITY (follow in order):
-              1. If cardsDrawn is 0 AND affordableRoutes is non-empty for any incomplete ticket: CLAIM one of those routes using place_tiles. Pick the highest-points ticket first. Use the route's color field as the "color" parameter.
-              2. If cardsDrawn is 0 AND usefulRoutes is non-empty but none are affordable: DRAW cards. Prefer drawing from display a card color that matches a color needed by your usefulRoutes. Otherwise draw from deck.
-              3. If cardsDrawn is 1: draw one more card (draw_display non-rainbow or draw_deck).
-              4. If cardsDrawn is 0 AND all incomplete tickets have no usefulRoutes (all paths blocked by opponents) AND ticketDeckCount > 0: draw_tickets to get new options.
-              5. Otherwise draw cards from deck.
-              
-              Available actions: 
-              1. { "action": "draw_display", "index": number } - draw a card from display (index 0-4). If you draw a rainbow (and cardsDrawn is 0), turn ends. If you draw a non-rainbow, you can draw again.
-              2. { "action": "draw_deck" } - draw a card from deck.
-              3. { "action": "draw_tickets" } - draw 2 tickets (only if cardsDrawn is 0).
-              4. { "action": "place_tiles", "routeId": number, "side": "single"|"even"|"odd", "color": string } - place tiles on a route (only if cardsDrawn is 0).
-              
-              Rules for the current turn (cardsDrawn = ${gameState.cardsDrawn}):
-              - If cardsDrawn is 0: you can draw_display, draw_deck, draw_tickets, or place_tiles.
-              - If cardsDrawn is 1: you can ONLY draw_display (non-rainbow) or draw_deck. You CANNOT draw_tickets or place_tiles.
-              - Drawing a rainbow from the display costs 2 actions and ends your turn immediately.
-              
-              Choose exactly one action based on these rules.`,
+Actions: {"action":"draw_display","index":0-4} | {"action":"draw_deck"} | {"action":"draw_tickets"} | {"action":"place_tiles","routeId":N,"side":"single"|"even"|"odd","color":"colorname"}
+Respond with ONE JSON object only.`,
             },
           ],
         }),

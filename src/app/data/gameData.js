@@ -113,6 +113,7 @@ export const ROUTES = [
   {
     id: 1,
     trainCount: 2,
+    connects: ["Baker Street", "Regent's Park"],
     x: 80,
     y: 150,
     tiles: [
@@ -123,6 +124,7 @@ export const ROUTES = [
   {
     id: 2,
     trainCount: 4,
+    connects: ["Baker Street", "British Museum"],
     x: 114,
     y: 170,
     tiles: [
@@ -135,6 +137,7 @@ export const ROUTES = [
   {
     id: 3,
     trainCount: 3,
+    connects: ["Regent's Park", "King's Cross"],
     x: 280,
     y: 50,
     tiles: [
@@ -146,6 +149,7 @@ export const ROUTES = [
   {
     id: 4,
     trainCount: 3,
+    connects: ["King's Cross", "The Charterhouse"],
     x: 580,
     y: 50,
     tiles: [
@@ -157,6 +161,7 @@ export const ROUTES = [
   {
     id: 5,
     trainCount: 3,
+    connects: ["The Charterhouse", "Brick Lane"],
     x: 880,
     y: 155,
     tiles: [
@@ -168,6 +173,7 @@ export const ROUTES = [
   {
     id: 6,
     trainCount: 3,
+    connects: ["St Paul's", "Brick Lane"],
     x: 880,
     y: 300,
     tiles: [
@@ -179,6 +185,7 @@ export const ROUTES = [
   {
     id: 7,
     trainCount: 3,
+    connects: ["Globe Theatre", "Tower of London"],
     x: 860,
     y: 445,
     tiles: [
@@ -190,6 +197,7 @@ export const ROUTES = [
   {
     id: 8,
     trainCount: 4,
+    connects: ["Elephant & Castle", "Tower of London"],
     x: 840,
     y: 625,
     tiles: [
@@ -202,6 +210,7 @@ export const ROUTES = [
   {
     id: 9,
     trainCount: 3,
+    connects: ["St Paul's", "Tower of London"],
     x: 880,
     y: 320,
     isDouble: true,
@@ -217,6 +226,7 @@ export const ROUTES = [
   {
     id: 10,
     trainCount: 3,
+    connects: ["Brick Lane", "Tower of London"],
     x: 1145,
     y: 180,
     tiles: [
@@ -228,6 +238,7 @@ export const ROUTES = [
   {
     id: 11,
     trainCount: 3,
+    connects: ["Regent's Park", "King's Cross"],
     x: 260,
     y: 70,
     tiles: [
@@ -239,6 +250,7 @@ export const ROUTES = [
   {
     id: 12,
     trainCount: 4,
+    connects: ["Baker Street", "Piccadilly Circus"],
     x: 65,
     y: 190,
     tiles: [
@@ -251,6 +263,7 @@ export const ROUTES = [
   {
     id: 13,
     trainCount: 4,
+    connects: ["Baker Street", "British Museum"],
     x: 90,
     y: 190,
     tiles: [
@@ -263,6 +276,7 @@ export const ROUTES = [
   {
     id: 14,
     trainCount: 2,
+    connects: ["Hyde Park", "Piccadilly Circus"],
     x: 120,
     y: 470,
     isDouble: true,
@@ -276,6 +290,7 @@ export const ROUTES = [
   {
     id: 15,
     trainCount: 1,
+    connects: ["Hyde Park", "Buckingham Palace"],
     x: 120,
     y: 527,
     isDouble: true,
@@ -287,6 +302,7 @@ export const ROUTES = [
   {
     id: 16,
     trainCount: 2,
+    connects: ["Piccadilly Circus", "Covent Garden"],
     x: 345,
     y: 390,
     tiles: [
@@ -297,6 +313,7 @@ export const ROUTES = [
   {
     id: 17,
     trainCount: 1,
+    connects: ["Piccadilly Circus", "Covent Garden"],
     x: 390,
     y: 360,
     isDouble: true,
@@ -308,6 +325,7 @@ export const ROUTES = [
   {
     id: 18,
     trainCount: 2,
+    connects: ["Buckingham Palace", "Trafalgar Square"],
     x: 240,
     y: 560,
     tiles: [
@@ -318,6 +336,7 @@ export const ROUTES = [
   {
     id: 19,
     trainCount: 2,
+    connects: ["Buckingham Palace", "Big Ben"],
     x: 250,
     y: 580,
     tiles: [
@@ -328,6 +347,7 @@ export const ROUTES = [
   {
     id: 20,
     trainCount: 2,
+    connects: ["Buckingham Palace", "Trafalgar Square"],
     x: 260,
     y: 570,
     tiles: [
@@ -338,6 +358,7 @@ export const ROUTES = [
   {
     id: 21,
     trainCount: 1,
+    connects: ["Covent Garden", "British Museum"],
     x: 500,
     y: 320,
     isDouble: true,
@@ -349,6 +370,7 @@ export const ROUTES = [
   {
     id: 22,
     trainCount: 2,
+    connects: ["Trafalgar Square", "Waterloo"],
     x: 440,
     y: 500,
     tiles: [
@@ -359,6 +381,7 @@ export const ROUTES = [
   {
     id: 23,
     trainCount: 2,
+    connects: ["Waterloo", "Elephant & Castle"],
     x: 640,
     y: 525,
     tiles: [
@@ -369,6 +392,7 @@ export const ROUTES = [
   {
     id: 24,
     trainCount: 2,
+    connects: ["Elephant & Castle", "Globe Theatre"],
     x: 800,
     y: 620,
     tiles: [
@@ -379,6 +403,7 @@ export const ROUTES = [
   {
     id: 25,
     trainCount: 3,
+    connects: ["Big Ben", "Elephant & Castle"],
     x: 455,
     y: 610,
     tiles: [
@@ -390,6 +415,7 @@ export const ROUTES = [
   {
     id: 26,
     trainCount: 1,
+    connects: ["Big Ben", "Waterloo"],
     x: 465,
     y: 580,
     tiles: [{ color: "blue", angle: 345 }],
@@ -397,6 +423,7 @@ export const ROUTES = [
   {
     id: 27,
     trainCount: 1,
+    connects: ["Trafalgar Square", "Big Ben"],
     x: 415,
     y: 490,
     tiles: [{ color: "gray", angle: 80 }],
@@ -404,6 +431,7 @@ export const ROUTES = [
   {
     id: 28,
     trainCount: 1,
+    connects: ["Piccadilly Circus", "Trafalgar Square"],
     x: 360,
     y: 400,
     isDouble: true,
@@ -415,6 +443,7 @@ export const ROUTES = [
   {
     id: 29,
     trainCount: 1,
+    connects: ["Trafalgar Square", "Covent Garden"],
     x: 420,
     y: 450,
     isDouble: true,
@@ -426,6 +455,7 @@ export const ROUTES = [
   {
     id: 30,
     trainCount: 2,
+    connects: ["British Museum", "King's Cross"],
     x: 490,
     y: 200,
     tiles: [
@@ -436,6 +466,7 @@ export const ROUTES = [
   {
     id: 31,
     trainCount: 2,
+    connects: ["Waterloo", "Globe Theatre"],
     x: 650,
     y: 500,
     tiles: [
@@ -446,6 +477,7 @@ export const ROUTES = [
   {
     id: 32,
     trainCount: 3,
+    connects: ["Covent Garden", "St Paul's"],
     x: 550,
     y: 350,
     isDouble: true,
@@ -461,6 +493,7 @@ export const ROUTES = [
   {
     id: 33,
     trainCount: 4,
+    connects: ["British Museum", "The Charterhouse"],
     x: 520,
     y: 200,
     tiles: [
@@ -473,6 +506,7 @@ export const ROUTES = [
   {
     id: 34,
     trainCount: 1,
+    connects: ["Globe Theatre", "St Paul's"],
     x: 810,
     y: 430,
     isDouble: true,
@@ -484,6 +518,7 @@ export const ROUTES = [
   {
     id: 35,
     trainCount: 1,
+    connects: ["St Paul's", "The Charterhouse"],
     x: 830,
     y: 275,
     tiles: [{ color: "black", angle: 285 }],
