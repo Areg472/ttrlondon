@@ -15,6 +15,7 @@ const PANELS = [
       alt="Ticket To Ride London irl"
       width={3742}
       height={3072}
+      quality={50}
     />
     <p className="text-zinc-400 text-sm">
       This is what Ticket To Ride London looks like in real life
@@ -32,12 +33,14 @@ const PANELS = [
         alt="TTR London Tickets"
         width={4080}
         height={3072}
+        quality={50}
       />
       <Image
         src="/Trains.jpg"
         alt="TTR London Tickets"
         width={4080}
         height={3072}
+        quality={50}
       />
     </div>
   </div>,
@@ -56,7 +59,13 @@ const PANELS = [
       claimed by spending any colored cards, but the cards should be the same
       color such as 2 greens or 2 reds.
     </p>
-    <Image src="/Route.jpg" alt="TTR London Route" width={4080} height={3072} />
+    <Image
+      src="/Route.jpg"
+      alt="TTR London Route"
+      width={4080}
+      height={3072}
+      quality={50}
+    />
   </div>,
   <div key={3} className="flex flex-col items-center gap-4">
     <p className="text-zinc-200 font-semibold">
@@ -73,6 +82,7 @@ const PANELS = [
       alt="TTR London Train Cards"
       width={4080}
       height={3072}
+      quality={50}
     />
   </div>,
   <div key={4} className="flex flex-col items-center gap-4">
@@ -87,6 +97,7 @@ const PANELS = [
       alt="TTR London Double Routes"
       width={4080}
       height={3072}
+      quality={50}
     />
   </div>,
   <div key={5} className="flex flex-col items-center gap-4">
@@ -106,6 +117,7 @@ const PANELS = [
       alt="TTR London Numbered Cities"
       width={4080}
       height={3072}
+      quality={50}
     />
   </div>,
 ];

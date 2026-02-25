@@ -425,7 +425,7 @@ export const ROUTES = [
   },
   {
     id: 30,
-    trainCount: 4,
+    trainCount: 2,
     x: 490,
     y: 200,
     tiles: [
