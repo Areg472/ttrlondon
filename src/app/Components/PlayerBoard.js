@@ -180,8 +180,8 @@ export function PlayerBoard({
         </div>
 
         <div
-          className="relative w-44 h-30 mt-16 cursor-pointer"
-          onClick={drawFromDeck}
+          className={`relative w-44 h-30 mt-16 ${cardsDrawn >= 2 ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
+          onClick={cardsDrawn >= 2 ? undefined : drawFromDeck}
         >
           {trainDeck.map((c, i) => (
             <div
@@ -206,19 +206,23 @@ export function PlayerBoard({
             Cards on Display
           </div>
           <div className="flex flex-col gap-4">
-            {(displayCards || []).map((c, i) => (
-              <div
-                key={i}
-                className="transition-transform hover:-translate-y-1 cursor-pointer"
-                onClick={() => onDrawFromDisplay(i)}
-              >
-                <TrainCards
-                  color={c.color}
-                  rainbow={!!c.rainbow}
-                  opposite={false}
-                />
-              </div>
-            ))}
+            {(displayCards || []).map((c, i) => {
+              const isDisabled =
+                cardsDrawn >= 2 || (c.rainbow && cardsDrawn >= 1);
+              return (
+                <div
+                  key={i}
+                  className={`transition-transform ${isDisabled ? "opacity-40 cursor-not-allowed" : "hover:-translate-y-1 cursor-pointer"}`}
+                  onClick={() => !isDisabled && onDrawFromDisplay(i)}
+                >
+                  <TrainCards
+                    color={c.color}
+                    rainbow={!!c.rainbow}
+                    opposite={false}
+                  />
+                </div>
+              );
+            })}
           </div>
         </div>
 

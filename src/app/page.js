@@ -209,6 +209,7 @@ export default function Home() {
     if (gameOver || isAiTurn || cardsDrawn >= 2 || drawingTickets) return;
     const card = displayCards[index];
     if (!card) return;
+    if (card.rainbow && cardsDrawn >= 1) return;
 
     logPlayerAction({
       action: "draw_display",
@@ -350,7 +351,7 @@ export default function Home() {
         const nextPlaced = next[idx];
         if (nextPlaced >= 15 && !lastRoundTriggered) {
           setLastRoundTriggered(true);
-          setFinalTurnsLeft(numAIs + 1);
+          setFinalTurnsLeft(numAIs - idx);
         }
         return next;
       });
@@ -359,7 +360,7 @@ export default function Home() {
         const nextPlaced = prev + tilesToAdd;
         if (nextPlaced >= 15 && !lastRoundTriggered) {
           setLastRoundTriggered(true);
-          setFinalTurnsLeft(numAIs + 1);
+          setFinalTurnsLeft(numAIs);
         }
         return nextPlaced;
       });
@@ -517,9 +518,33 @@ export default function Home() {
     return true;
   };
 
-  const applyNumberBonuses = () => {
+  const applyNumberBonuses = (
+    finalClaimedRoutes,
+    finalPlayerTickets,
+    finalAiTickets,
+  ) => {
     const groups = groupCitiesByNumber();
-    const playerEdges = getClaimedEdges("player");
+    const getEdges = (claimer) => {
+      const edges = [];
+      for (const [k, v] of Object.entries(finalClaimedRoutes)) {
+        if (v !== claimer) continue;
+        const [routeIdStr] = k.split("_");
+        const id = Number(routeIdStr);
+        const route = ROUTES.find((r) => r.id === id);
+        if (!route) continue;
+        let connects = null;
+        if (Array.isArray(route.connects) && route.connects.length === 2) {
+          connects = route.connects;
+        } else {
+          connects = inferRouteConnectsByGeometry(route);
+        }
+        if (connects && connects[0] && connects[1]) {
+          edges.push([connects[0], connects[1]]);
+        }
+      }
+      return edges;
+    };
+    const playerEdges = getEdges("player");
 
     const playerNums = [];
     for (const [num, names] of groups.entries()) {
@@ -534,7 +559,7 @@ export default function Home() {
     const allAiNums = [];
     const allAiResults = [];
     for (let i = 0; i < (numAIs || 0); i++) {
-      const aiEdges = getClaimedEdges(`ai${i}`);
+      const aiEdges = getEdges(`ai${i}`);
       const aiNums = [];
       for (const [num, names] of groups.entries()) {
         if (names.length < 2) continue;
@@ -546,7 +571,7 @@ export default function Home() {
           prev.map((s, idx) => (idx === i ? s + add(aiNums) : s)),
         );
 
-      const aiResults = (aiTickets[i] || []).map((t) => {
+      const aiResults = (finalAiTickets[i] || []).map((t) => {
         const completed = isConnectedViaEdges(aiEdges, t.cityA, t.cityB);
         return { ...t, completed };
       });
@@ -563,7 +588,7 @@ export default function Home() {
 
     setAiNumberBonuses(allAiNums);
 
-    const playerResults = playerTickets.map((t) => {
+    const playerResults = finalPlayerTickets.map((t) => {
       const completed = isConnectedViaEdges(playerEdges, t.cityA, t.cityB);
       return { ...t, completed };
     });
@@ -578,10 +603,10 @@ export default function Home() {
 
   useEffect(() => {
     if (gameOver && !finalBonusesApplied) {
-      applyNumberBonuses();
+      applyNumberBonuses(claimedRoutes, playerTickets, aiTickets);
       setFinalBonusesApplied(true);
     }
-  }, [gameOver, finalBonusesApplied, claimedRoutes]);
+  }, [gameOver, finalBonusesApplied, claimedRoutes, playerTickets, aiTickets]);
 
   const logPlayerAction = (action) => {
     setPlayerTurnActions((prev) => [...prev, action]);
@@ -878,6 +903,10 @@ export default function Home() {
     const card = displayCards[index];
     if (!card) {
       incrementTurn();
+      return;
+    }
+    if (card.rainbow && cardsDrawn >= 1) {
+      drawAiFromDeck();
       return;
     }
 
