@@ -132,7 +132,7 @@ export function GameOverModal({
 
         <button
           onClick={() => window.location.reload()}
-          className="px-8 py-4 bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-2xl font-bold hover:scale-105 transition-transform"
+          className="px-8 py-4 bg-zinc-800 dark:bg-zinc-100 cursor-pointer text-white dark:text-zinc-900 rounded-2xl font-bold hover:scale-105 transition-transform"
         >
           Play Again
         </button>
