@@ -140,6 +140,9 @@ export default function Home() {
   const [aiLastActions, setAiLastActions] = useState([]);
   const isAiThinkingRef = useRef(false);
   const lastProcessedAiAction = useRef("");
+  const claimedRoutesRef = useRef({});
+  const playerTicketsRef = useRef([]);
+  const aiTicketsRef = useRef([]);
 
   const isAiTurn = currentAiIndex >= 0;
   const isPersonTurn = currentAiIndex < 0;
@@ -201,6 +204,7 @@ export default function Home() {
       const kept = await askAiToSelectTickets(drawn, state.aiHands[i]);
       chosenTickets.push(kept.map((idx) => drawn[idx]));
     }
+    aiTicketsRef.current = chosenTickets;
     setAiTickets(chosenTickets);
     setAiSelectingTickets(false);
   };
@@ -379,7 +383,9 @@ export default function Home() {
     if (selectedIndices.length < 1) return;
     const selected = selectedIndices.map((idx) => drawingTickets[idx]);
     logPlayerAction({ action: "select_tickets", tickets: selected });
-    setPlayerTickets((prev) => [...prev, ...selected]);
+    const nextPT = [...playerTicketsRef.current, ...selected];
+    playerTicketsRef.current = nextPT;
+    setPlayerTickets(nextPT);
     setDrawingTickets(null);
     if (!gameOver) incrementTurn();
   };
@@ -396,10 +402,9 @@ export default function Home() {
     if (type === "player") {
       logPlayerAction({ action: "claim_route", routeId, side });
     }
-    setClaimedRoutes((prev) => ({
-      ...prev,
-      [`${routeId}_${side}`]: type,
-    }));
+    const next = { ...claimedRoutesRef.current, [`${routeId}_${side}`]: type };
+    claimedRoutesRef.current = next;
+    setClaimedRoutes(next);
   };
 
   const routeConnectCache = { cache: {} };
@@ -603,10 +608,14 @@ export default function Home() {
 
   useEffect(() => {
     if (gameOver && !finalBonusesApplied) {
-      applyNumberBonuses(claimedRoutes, playerTickets, aiTickets);
+      applyNumberBonuses(
+        claimedRoutesRef.current,
+        playerTicketsRef.current,
+        aiTicketsRef.current,
+      );
       setFinalBonusesApplied(true);
     }
-  }, [gameOver, finalBonusesApplied, claimedRoutes, playerTickets, aiTickets]);
+  }, [gameOver, finalBonusesApplied]);
 
   const logPlayerAction = (action) => {
     setPlayerTurnActions((prev) => [...prev, action]);
@@ -685,8 +694,23 @@ export default function Home() {
           const key = `${routeId}_${side}`;
           if (!seen.has(key)) {
             seen.add(key);
-            if (!currentClaimedRoutes[key]) {
-              usefulRoutes.push({ routeId, side, color, trainCount });
+            const claimer = currentClaimedRoutes[key];
+            if (!claimer) {
+              usefulRoutes.push({
+                routeId,
+                side,
+                color,
+                trainCount,
+                alreadyOwned: false,
+              });
+            } else if (claimer === aiIdentifier) {
+              usefulRoutes.push({
+                routeId,
+                side,
+                color,
+                trainCount,
+                alreadyOwned: true,
+              });
             }
           }
         }
@@ -719,24 +743,27 @@ export default function Home() {
             claimedRoutes,
             aiIdentifier,
           );
-      const affordableRoutes = usefulRoutes.filter(({ color, trainCount }) => {
-        const wilds = myHand.rainbow || 0;
-        if (color === "gray") {
-          const baseColors = [
-            "orange",
-            "yellow",
-            "blue",
-            "green",
-            "black",
-            "red",
-          ];
-          return (
-            baseColors.some((c) => (myHand[c] || 0) + wilds >= trainCount) ||
-            wilds >= trainCount
-          );
-        }
-        return (myHand[color] || 0) + wilds >= trainCount;
-      });
+      const affordableRoutes = usefulRoutes.filter(
+        ({ color, trainCount, alreadyOwned }) => {
+          if (alreadyOwned) return true;
+          const wilds = myHand.rainbow || 0;
+          if (color === "gray") {
+            const baseColors = [
+              "orange",
+              "yellow",
+              "blue",
+              "green",
+              "black",
+              "red",
+            ];
+            return (
+              baseColors.some((c) => (myHand[c] || 0) + wilds >= trainCount) ||
+              wilds >= trainCount
+            );
+          }
+          return (myHand[color] || 0) + wilds >= trainCount;
+        },
+      );
       return {
         cityA: ticket.cityA,
         cityB: ticket.cityB,
@@ -813,7 +840,7 @@ ${
   gameState.cardsDrawn === 1
     ? `cardsDrawn=1: draw ONE more card. Priority: pick the display card with the highest index where isNeeded=true AND canDrawNow=true AND isRainbow=false. If none, draw_deck.`
     : `cardsDrawn=0 priority order (stop at first that applies):
-1. affordableRoutes non-empty for any incomplete ticket? → place_tiles on that route (highest points ticket first). Use routeId, side, color from affordableRoutes entry.
+1. affordableRoutes has any entry with alreadyOwned=false for any incomplete ticket? → place_tiles on that unowned route (highest points ticket first, prefer routes with alreadyOwned=false). Use routeId, side, color from that affordableRoutes entry. NOTE: routes with alreadyOwned=true are already claimed by you and count toward multiple tickets for free — never place_tiles on them.
 2. usefulRoutes non-empty but none affordable? → draw the display card where isNeeded=true AND canDrawNow=true (prefer rainbow if available and cardsDrawn=0, else pick the needed color with lowest trainCount requirement). If no such display card, draw_deck.
 3. All incomplete tickets have empty usefulRoutes AND ticketDeckCount>0? → draw_tickets.
 4. Otherwise → draw_deck.`
@@ -1052,9 +1079,11 @@ Respond with ONE JSON object only.`,
     } catch (_) {}
 
     const keptTickets = keepIndices.map((i) => drawn[i]);
-    setAiTickets((prev) =>
-      prev.map((t, i) => (i === aidx3 ? [...t, ...keptTickets] : t)),
+    const nextAT = aiTicketsRef.current.map((t, i) =>
+      i === aidx3 ? [...t, ...keptTickets] : t,
     );
+    aiTicketsRef.current = nextAT;
+    setAiTickets(nextAT);
     setAiLastActions((prev) =>
       prev.map((a, i) =>
         i === currentAiIndex ? `Drew tickets, kept ${keptTickets.length}` : a,
