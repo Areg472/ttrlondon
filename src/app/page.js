@@ -747,6 +747,33 @@ export default function Home() {
       };
     });
 
+    const neededColors = new Set();
+    for (const t of ticketAnalysis) {
+      if (!t.completed) {
+        for (const r of t.usefulRoutes) {
+          if (r.color !== "gray") neededColors.add(r.color);
+          else {
+            for (const c of [
+              "orange",
+              "yellow",
+              "blue",
+              "green",
+              "black",
+              "red",
+            ])
+              neededColors.add(c);
+          }
+        }
+      }
+    }
+    const displayCardOptions = displayCards.map((c, i) => ({
+      index: i,
+      color: c.rainbow ? "rainbow" : c.color,
+      isRainbow: !!c.rainbow,
+      isNeeded: c.rainbow || neededColors.has(c.rainbow ? "rainbow" : c.color),
+      canDrawNow: !(c.rainbow && cardsDrawn >= 1),
+    }));
+
     const gameState = {
       aiHand: myHand,
       aiTickets: myTickets,
@@ -758,7 +785,7 @@ export default function Home() {
       playerTicketsCount: playerTickets.length,
       playerScore: score,
       playerTurnActions,
-      displayCards,
+      displayCardOptions,
       trainDeckCount: trainDeck.length,
       ticketDeckCount: ticketDeck.length,
       claimedRoutes,
@@ -779,13 +806,15 @@ export default function Home() {
               role: "user",
               content: `State: ${JSON.stringify(gameState)}
 
-cardsDrawn=${gameState.cardsDrawn}. Follow EXACTLY:
+cardsDrawn=${gameState.cardsDrawn}. displayCardOptions=${JSON.stringify(gameState.displayCardOptions)} (index=position, isNeeded=helps your tickets, canDrawNow=allowed by rules).
+
+Follow EXACTLY:
 ${
   gameState.cardsDrawn === 1
-    ? "cardsDrawn=1: you MUST draw one more card. Use draw_deck OR draw_display (non-rainbow only)."
+    ? `cardsDrawn=1: draw ONE more card. Priority: pick the display card with the highest index where isNeeded=true AND canDrawNow=true AND isRainbow=false. If none, draw_deck.`
     : `cardsDrawn=0 priority order (stop at first that applies):
 1. affordableRoutes non-empty for any incomplete ticket? → place_tiles on that route (highest points ticket first). Use routeId, side, color from affordableRoutes entry.
-2. usefulRoutes non-empty but none affordable? → draw card matching a needed color from display, else draw_deck.
+2. usefulRoutes non-empty but none affordable? → draw the display card where isNeeded=true AND canDrawNow=true (prefer rainbow if available and cardsDrawn=0, else pick the needed color with lowest trainCount requirement). If no such display card, draw_deck.
 3. All incomplete tickets have empty usefulRoutes AND ticketDeckCount>0? → draw_tickets.
 4. Otherwise → draw_deck.`
 }
