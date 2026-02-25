@@ -45,8 +45,6 @@ export function TrainTileCont({
       const otherClaimer =
         playerHand?.claimedRoutes?.[`${routeId}_${otherSide}`];
       if (otherClaimer) {
-        // With 1 AI: neither side of a double can be claimed once one side is taken
-        // With 2+ AIs: only block if the same player already claimed the other side
         const numAIs = playerHand?.numAIs ?? 1;
         if (numAIs <= 1 || otherClaimer === "player") return false;
       }

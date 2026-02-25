@@ -1,14 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import {
-  TrainTile,
-  TrainTileCont,
-  PlayerHandContext,
-} from "./Components/TrainTile";
-import { City } from "./Components/City";
-import TicketCard from "./Components/TicketCard";
-import { TrainCards } from "./Components/Cards";
 import { shuffle } from "./utils/shuffle";
 import {
   CITIES,
@@ -16,7 +8,11 @@ import {
   INITIAL_TRAIN_CARDS_DECK,
   ROUTES,
 } from "./data/gameData";
-import { TicketSelection } from "./Components/TicketSelection";
+import { StartScreen } from "./Components/StartScreen";
+import { GameOverModal } from "./Components/GameOverModal";
+import { GameHeader } from "./Components/GameHeader";
+import { AiPanel } from "./Components/AiPanel";
+import { PlayerBoard } from "./Components/PlayerBoard";
 
 const checkThreeRainbows = (currentDisplay, currentDeck, currentDiscard) => {
   let display = [...currentDisplay],
@@ -116,7 +112,6 @@ export default function Home() {
   const [score, setScore] = useState(0);
   const [aiScores, setAiScores] = useState([]);
   const [turn, setTurn] = useState(1);
-  // currentAiIndex: -1 = player turn, 0..numAIs-1 = AI turn
   const [currentAiIndex, setCurrentAiIndex] = useState(-1);
   const [cardsDrawn, setCardsDrawn] = useState(0);
   const [placedTiles, setPlacedTiles] = useState(0);
@@ -280,13 +275,10 @@ export default function Home() {
     }
 
     if (currentAiIndex < 0) {
-      // player just finished, move to first AI
       setCurrentAiIndex(0);
     } else if (currentAiIndex < numAIs - 1) {
-      // move to next AI
       setCurrentAiIndex((prev) => prev + 1);
     } else {
-      // last AI finished, back to player
       setCurrentAiIndex(-1);
       setTurn((prev) => prev + 1);
       setPlayerTurnActions([]);
@@ -357,7 +349,6 @@ export default function Home() {
     if (type === "player") {
       logPlayerAction({ action: "claim_route", routeId, side });
     }
-    // type is "player" or "ai0", "ai1", etc.
     setClaimedRoutes((prev) => ({
       ...prev,
       [`${routeId}_${side}`]: type,
@@ -526,7 +517,6 @@ export default function Home() {
 
     setAiNumberBonuses(allAiNums);
 
-    // Apply player ticket scoring
     const playerResults = playerTickets.map((t) => {
       const completed = isConnectedViaEdges(playerEdges, t.cityA, t.cityB);
       return { ...t, completed };
@@ -545,11 +535,93 @@ export default function Home() {
       applyNumberBonuses();
       setFinalBonusesApplied(true);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameOver, finalBonusesApplied, claimedRoutes]);
 
   const logPlayerAction = (action) => {
     setPlayerTurnActions((prev) => [...prev, action]);
+  };
+
+  const getUsefulRoutesForTicket = (
+    cityA,
+    cityB,
+    currentClaimedRoutes,
+    aiIdentifier,
+  ) => {
+    const adj = new Map();
+    const addEdge = (city, neighbor, routeId, side, color, trainCount) => {
+      if (!adj.has(city)) adj.set(city, []);
+      adj.get(city).push({ neighbor, routeId, side, color, trainCount });
+    };
+
+    for (const route of ROUTES) {
+      let connects = null;
+      if (Array.isArray(route.connects) && route.connects.length === 2) {
+        connects = route.connects;
+      } else {
+        connects = inferRouteConnectsByGeometry(route);
+      }
+      if (!connects || !connects[0] || !connects[1]) continue;
+      const [a, b] = connects;
+
+      if (route.isDouble) {
+        for (const side of ["even", "odd"]) {
+          const key = `${route.id}_${side}`;
+          const claimer = currentClaimedRoutes[key];
+          if (!claimer || claimer === aiIdentifier) {
+            const tileColor =
+              route.tiles[side === "even" ? 0 : 1]?.color || "gray";
+            addEdge(a, b, route.id, side, tileColor, route.trainCount);
+            addEdge(b, a, route.id, side, tileColor, route.trainCount);
+          }
+        }
+      } else {
+        const key = `${route.id}_single`;
+        const claimer = currentClaimedRoutes[key];
+        if (!claimer || claimer === aiIdentifier) {
+          const tileColor = route.tiles[0]?.color || "gray";
+          addEdge(a, b, route.id, "single", tileColor, route.trainCount);
+          addEdge(b, a, route.id, "single", tileColor, route.trainCount);
+        }
+      }
+    }
+
+    const dist = new Map();
+    dist.set(cityA, 0);
+    const queue = [cityA];
+    while (queue.length) {
+      const cur = queue.shift();
+      const curDist = dist.get(cur);
+      for (const { neighbor } of adj.get(cur) || []) {
+        if (!dist.has(neighbor)) {
+          dist.set(neighbor, curDist + 1);
+          queue.push(neighbor);
+        }
+      }
+    }
+
+    if (!dist.has(cityB)) return [];
+
+    const targetDist = dist.get(cityB);
+
+    const usefulRoutes = [];
+    const seen = new Set();
+    for (const [city, edges] of adj.entries()) {
+      const cityDist = dist.get(city);
+      if (cityDist === undefined || cityDist >= targetDist) continue;
+      for (const { neighbor, routeId, side, color, trainCount } of edges) {
+        const neighborDist = dist.get(neighbor);
+        if (neighborDist === cityDist + 1) {
+          const key = `${routeId}_${side}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            if (!currentClaimedRoutes[key]) {
+              usefulRoutes.push({ routeId, side, color, trainCount });
+            }
+          }
+        }
+      }
+    }
+    return usefulRoutes;
   };
 
   const playAiTurn = useCallback(async () => {
@@ -557,9 +629,56 @@ export default function Home() {
     isAiThinkingRef.current = true;
 
     const idx = currentAiIndex;
+    const myTickets = aiTickets[idx] || [];
+    const myHand = aiHands[idx] || {};
+    const aiIdentifier = `ai${idx}`;
+
+    const ticketAnalysis = myTickets.map((ticket) => {
+      const myEdges = getClaimedEdges(aiIdentifier);
+      const completed = isConnectedViaEdges(
+        myEdges,
+        ticket.cityA,
+        ticket.cityB,
+      );
+      const usefulRoutes = completed
+        ? []
+        : getUsefulRoutesForTicket(
+            ticket.cityA,
+            ticket.cityB,
+            claimedRoutes,
+            aiIdentifier,
+          );
+      const affordableRoutes = usefulRoutes.filter(({ color, trainCount }) => {
+        const wilds = myHand.rainbow || 0;
+        if (color === "gray") {
+          const baseColors = [
+            "orange",
+            "yellow",
+            "blue",
+            "green",
+            "black",
+            "red",
+          ];
+          return (
+            baseColors.some((c) => (myHand[c] || 0) + wilds >= trainCount) ||
+            wilds >= trainCount
+          );
+        }
+        return (myHand[color] || 0) + wilds >= trainCount;
+      });
+      return {
+        cityA: ticket.cityA,
+        cityB: ticket.cityB,
+        points: ticket.points,
+        completed,
+        usefulRoutes,
+        affordableRoutes,
+      };
+    });
+
     const gameState = {
-      aiHand: aiHands[idx] || {},
-      aiTickets: aiTickets[idx] || [],
+      aiHand: myHand,
+      aiTickets: myTickets,
       aiScore: aiScores[idx] || 0,
       aiPlacedTiles: aiPlacedTiles[idx] || 0,
       aiIndex: idx,
@@ -572,8 +691,7 @@ export default function Home() {
       trainDeckCount: trainDeck.length,
       ticketDeckCount: ticketDeck.length,
       claimedRoutes,
-      routes: ROUTES,
-      cities: CITIES,
+      ticketAnalysis,
     };
 
     try {
@@ -589,6 +707,19 @@ export default function Home() {
             {
               role: "user",
               content: `Current Game State: ${JSON.stringify(gameState)}. 
+
+              TICKET STRATEGY (highest priority):
+              Your tickets are analyzed in ticketAnalysis. Each entry shows:
+              - completed: whether you already finished that ticket
+              - usefulRoutes: routes on the shortest path between the ticket cities (unclaimed)
+              - affordableRoutes: subset of usefulRoutes you can claim RIGHT NOW with your current hand
+              
+              DECISION PRIORITY (follow in order):
+              1. If cardsDrawn is 0 AND affordableRoutes is non-empty for any incomplete ticket: CLAIM one of those routes using place_tiles. Pick the highest-points ticket first. Use the route's color field as the "color" parameter.
+              2. If cardsDrawn is 0 AND usefulRoutes is non-empty but none are affordable: DRAW cards. Prefer drawing from display a card color that matches a color needed by your usefulRoutes. Otherwise draw from deck.
+              3. If cardsDrawn is 1: draw one more card (draw_display non-rainbow or draw_deck).
+              4. Only draw tickets if you have no incomplete tickets and the ticket deck is non-empty.
+              
               Available actions: 
               1. { "action": "draw_display", "index": number } - draw a card from display (index 0-4). If you draw a rainbow (and cardsDrawn is 0), turn ends. If you draw a non-rainbow, you can draw again.
               2. { "action": "draw_deck" } - draw a card from deck.
@@ -641,7 +772,6 @@ export default function Home() {
     } finally {
       isAiThinkingRef.current = false;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     gameOver,
     isAiTurn,
@@ -820,8 +950,6 @@ export default function Home() {
       const otherSide = side === "even" ? "odd" : "even";
       const otherClaimer = claimedRoutes[`${routeId}_${otherSide}`];
       if (otherClaimer) {
-        // With 1 AI: block both sides once one is taken
-        // With 2+ AIs: only block if this same AI already claimed the other side
         if (numAIs <= 1 || otherClaimer === `ai${currentAiIndex}`) {
           drawAiFromDeck();
           return;
@@ -891,489 +1019,72 @@ export default function Home() {
   };
 
   if (!gameStarted) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-100 font-sans dark:bg-zinc-900 p-8">
-        <div className="bg-white dark:bg-zinc-900 p-12 rounded-[40px] shadow-2xl border border-zinc-200 dark:border-zinc-800 flex flex-col items-center max-w-md w-full text-center">
-          <h1 className="text-4xl font-black mb-2 text-zinc-800 dark:text-zinc-100">
-            Ticket to Ride
-          </h1>
-          <p className="text-zinc-400 mb-10 uppercase tracking-[0.2em] font-bold text-sm">
-            London
-          </p>
-          <p className="text-zinc-600 dark:text-zinc-300 font-semibold mb-6 text-lg">
-            How many AI opponents?
-          </p>
-          <div className="flex gap-4">
-            {[1, 2, 3].map((n) => (
-              <button
-                key={n}
-                onClick={() => startGame(n)}
-                className="w-16 h-16 cursor-pointer rounded-2xl bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-900 text-2xl font-black hover:scale-110 transition-transform shadow-lg"
-              >
-                {n}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
+    return <StartScreen onStart={startGame} />;
   }
-
-  const allScores = [
-    { label: "Player", score },
-    ...aiScores.map((s, i) => ({ label: `AI ${i + 1}`, score: s })),
-  ];
-  const winner = allScores.reduce(
-    (best, cur) => (cur.score > best.score ? cur : best),
-    allScores[0],
-  );
 
   return (
     <div className="flex min-h-screen flex-col items-center bg-zinc-100 font-sans dark:bg-zinc-900 p-8">
       {gameOver && (
-        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-md">
-          <div className="bg-white dark:bg-zinc-900 p-12 rounded-[40px] shadow-2xl border border-zinc-200 dark:border-zinc-800 flex flex-col items-center max-w-lg w-full text-center">
-            <h2 className="text-5xl font-black mb-2 text-zinc-800 dark:text-zinc-100">
-              Game Over
-            </h2>
-            <p className="text-zinc-500 mb-8 uppercase tracking-[0.2em] font-bold">
-              Final Results
-            </p>
-
-            <div className="flex gap-8 mb-12 flex-wrap justify-center">
-              <div className="flex flex-col">
-                <span className="text-sm text-zinc-400 uppercase font-bold mb-1">
-                  Player
-                </span>
-                <span className="text-6xl font-black text-zinc-800 dark:text-zinc-100">
-                  {score}
-                </span>
-              </div>
-              {aiScores.map((s, i) => (
-                <>
-                  <div
-                    key={`sep-${i}`}
-                    className="w-px h-16 bg-zinc-200 dark:bg-zinc-800 self-center"
-                  />
-                  <div key={`ai-${i}`} className="flex flex-col">
-                    <span className="text-sm text-zinc-400 uppercase font-bold mb-1">
-                      AI {i + 1}
-                    </span>
-                    <span className="text-6xl font-black text-zinc-800 dark:text-zinc-100">
-                      {s}
-                    </span>
-                  </div>
-                </>
-              ))}
-            </div>
-
-            {(playerNumberBonuses.length > 0 ||
-              aiNumberBonuses.some((a) => a.length > 0)) && (
-              <div className="mb-6 text-sm text-zinc-600 dark:text-zinc-300 text-left w-full">
-                <div className="font-semibold mb-2">City-number bonuses</div>
-                <div className="mb-1">
-                  Player:{" "}
-                  {playerNumberBonuses.length > 0
-                    ? [...playerNumberBonuses].sort((a, b) => a - b).join(", ")
-                    : "—"}
-                  {playerNumberBonuses.length > 0 && (
-                    <span className="ml-2 text-zinc-500">
-                      (+{playerNumberBonuses.reduce((a, b) => a + b, 0)})
-                    </span>
-                  )}
-                </div>
-                {aiNumberBonuses.map((nums, i) => (
-                  <div key={i}>
-                    AI {i + 1}:{" "}
-                    {nums.length > 0
-                      ? [...nums].sort((a, b) => a - b).join(", ")
-                      : "—"}
-                    {nums.length > 0 && (
-                      <span className="ml-2 text-zinc-500">
-                        (+{nums.reduce((a, b) => a + b, 0)})
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {(playerTicketResults.length > 0 ||
-              aiTicketResults.some((r) => r.length > 0)) && (
-              <div className="mb-6 text-sm text-zinc-600 dark:text-zinc-300 text-left w-full">
-                <div className="font-semibold mb-2">Tickets</div>
-                <div className="mb-1">
-                  <span className="font-medium">Player:</span>
-                  {playerTicketResults.length === 0 && " —"}
-                  {playerTicketResults.map((t, i) => (
-                    <span
-                      key={i}
-                      className={`ml-2 ${t.completed ? "text-green-500" : "text-red-500"}`}
-                    >
-                      {t.cityA}→{t.cityB} ({t.completed ? "+" : "-"}
-                      {t.points})
-                    </span>
-                  ))}
-                </div>
-                {aiTicketResults.map((results, i) => (
-                  <div key={i}>
-                    <span className="font-medium">AI {i + 1}:</span>
-                    {results.length === 0 && " —"}
-                    {results.map((t, j) => (
-                      <span
-                        key={j}
-                        className={`ml-2 ${t.completed ? "text-green-500" : "text-red-500"}`}
-                      >
-                        {t.cityA}→{t.cityB} ({t.completed ? "+" : "-"}
-                        {t.points})
-                      </span>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="text-2xl font-bold mb-8">
-              {winner.label === "Player" ? (
-                <span className="text-green-500">Player Wins!</span>
-              ) : allScores.filter((s) => s.score === winner.score).length >
-                1 ? (
-                <span className="text-blue-500">It&#39;s a Tie!</span>
-              ) : (
-                <span className="text-red-500">{winner.label} Wins!</span>
-              )}
-            </div>
-
-            <button
-              onClick={() => window.location.reload()}
-              className="px-8 py-4 bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-2xl font-bold hover:scale-105 transition-transform"
-            >
-              Play Again
-            </button>
-          </div>
-        </div>
+        <GameOverModal
+          score={score}
+          aiScores={aiScores}
+          playerNumberBonuses={playerNumberBonuses}
+          aiNumberBonuses={aiNumberBonuses}
+          playerTicketResults={playerTicketResults}
+          aiTicketResults={aiTicketResults}
+        />
       )}
-      <header className="mb-8 text-center flex items-center justify-center gap-12">
-        <h1 className="text-4xl font-bold text-zinc-800 dark:text-zinc-100 mb-2">
-          Ticket to Ride London
-        </h1>
 
-        <div className="z-50 select-none">
-          <div className="backdrop-blur-sm border-2  border-zinc-800 rounded-2xl px-6 py-3 shadow-lg flex flex-col items-center">
-            <span className="text-[10px] uppercase font-black tracking-[0.2em] text-zinc-400 mb-0.5">
-              Points
-            </span>
-            <span className="text-3xl  text-zinc-100 tabular-nums leading-none">
-              {score}
-            </span>
-          </div>
-        </div>
-        <div className="z-50 select-none">
-          <div className="backdrop-blur-sm border-2  border-zinc-800 rounded-2xl px-6 py-3 shadow-lg flex flex-col items-center">
-            <span className="text-[10px] uppercase font-black tracking-[0.2em] text-zinc-400 mb-0.5">
-              Turn
-            </span>
-            <span className="text-3xl  text-zinc-100 tabular-nums leading-none">
-              {turn}
-            </span>
-            {isAiTurn && !gameOver && (
-              <span className="text-[10px] uppercase font-black text-red-500 mt-1">
-                AI {currentAiIndex + 1} Thinking...
-              </span>
-            )}
-            {isPersonTurn && !gameOver && (
-              <span className="text-[15px] uppercase font-black text-red-400 mt-1">
-                Your Turn!
-              </span>
-            )}
-            {lastRoundTriggered && !gameOver && (
-              <span className="text-[10px] uppercase font-black text-amber-500 mt-1">
-                Last Round!
-              </span>
-            )}
-          </div>
-        </div>
-      </header>
+      <GameHeader
+        score={score}
+        turn={turn}
+        isAiTurn={isAiTurn}
+        isPersonTurn={isPersonTurn}
+        currentAiIndex={currentAiIndex}
+        lastRoundTriggered={lastRoundTriggered}
+        gameOver={gameOver}
+      />
 
       <div className="flex flex-row flex-wrap gap-4">
         {aiHands.map((hand, i) => (
-          <div key={i}>
-            <div className="flex gap-4 mb-4">
-              <div
-                className={`text-white p-4 rounded-xl shadow-lg flex gap-8 ${
-                  currentAiIndex === i && !gameOver
-                    ? "bg-red-700"
-                    : "bg-zinc-800"
-                }`}
-              >
-                <div className="flex flex-col items-center">
-                  <span className="text-[10px] uppercase font-bold text-zinc-400">
-                    AI {i + 1} Points
-                  </span>
-                  <span className="text-2xl font-black">{aiScores[i]}</span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <span className="text-[10px] uppercase font-bold text-zinc-400">
-                    AI {i + 1} Train Pieces
-                  </span>
-                  <span className="text-2xl font-black">
-                    {17 - (aiPlacedTiles[i] || 0)}
-                  </span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <span className="text-[10px] uppercase font-bold text-zinc-400">
-                    AI {i + 1} Train Cards
-                  </span>
-                  <span className="text-2xl font-black">
-                    {Object.values(hand).reduce((a, b) => a + b, 0)}
-                  </span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <span className="text-[10px] uppercase font-bold text-zinc-400">
-                    AI {i + 1} Tickets
-                  </span>
-                  <span className="text-2xl font-black">
-                    {(aiTickets[i] || []).length}
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div className="flex gap-4 justify-center mb-4">
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                <span className="font-bold text-zinc-700 dark:text-zinc-200">
-                  AI {i + 1} last action:
-                </span>{" "}
-                {aiLastActions[i] ?? "None yet"}
-              </p>
-            </div>
-          </div>
+          <AiPanel
+            key={i}
+            index={i}
+            hand={hand}
+            score={aiScores[i]}
+            placedTiles={aiPlacedTiles[i]}
+            tickets={aiTickets[i]}
+            lastAction={aiLastActions[i]}
+            isThinking={currentAiIndex === i}
+            gameOver={gameOver}
+          />
         ))}
       </div>
-      <main className="w-full flex justify-center gap-8 p-4">
-        <div className="flex flex-col items-center">
-          <div className="relative w-200 h-150 overflow-auto shadow-2xl rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-black">
-            <div
-              className="relative min-w-300 aspect-18/10  bg-black"
-              style={{ paddingBottom: "64px" }}
-            >
-              <PlayerHandContext.Provider
-                value={{
-                  ...playerHand,
-                  spendCards,
-                  addPoints,
-                  placedTiles,
-                  canPlaceMore,
-                  incrementPlaced,
-                  incrementTurn,
-                  cardsDrawn,
-                  isAiTurn,
-                  numAIs,
-                  claimedRoutes,
-                  claimRoute,
-                }}
-              >
-                <div
-                  className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none"
-                  style={{
-                    backgroundImage:
-                      "radial-gradient(#000 1px, transparent 1px)",
-                    backgroundSize: "20px 20px",
-                  }}
-                ></div>
 
-                {ROUTES.map((route) => (
-                  <TrainTileCont
-                    key={route.id}
-                    routeId={route.id}
-                    trainCount={route.trainCount}
-                    x={route.x}
-                    y={route.y}
-                    isDouble={route.isDouble}
-                  >
-                    {route.tiles.map((tile, i) => (
-                      <TrainTile
-                        key={i}
-                        color={tile.color}
-                        angle={tile.angle}
-                      />
-                    ))}
-                  </TrainTileCont>
-                ))}
-
-                {CITIES.map((city) => (
-                  <City key={city.name} {...city} />
-                ))}
-              </PlayerHandContext.Provider>
-            </div>
-          </div>
-          <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400 italic">
-            Scroll to explore the map
-          </p>
-          <p className="mt-10 text-lg text-zinc-500 dark:text-zinc-400">
-            Player board ({17 - placedTiles} train pieces left)
-          </p>
-          {drawingTickets && (
-            <div className="bg-white dark:bg-zinc-900 p-8 rounded-3xl shadow-2xl border border-zinc-200 dark:border-zinc-800 flex flex-col items-center max-w-2xl w-full mt-10">
-              <h2 className="text-2xl font-bold mb-6 text-zinc-800 dark:text-zinc-100">
-                Select 1-2 Ticket Cards
-              </h2>
-              <div className="flex gap-6 mb-8 overflow-auto py-2">
-                <TicketSelection
-                  tickets={drawingTickets}
-                  onSelectionComplete={selectTickets}
-                />
-              </div>
-            </div>
-          )}
-          <div className="flex flex-row mt-10" style={{ gap: "2.5rem" }}>
-            <div className="gap-2 flex flex-col justify-center max-w-150">
-              <p className="text-sm text-zinc-500 dark:text-zinc-400 font-bold mb-2">
-                Train Cards
-              </p>
-              <div className="grid grid-cols-3 border-2 border-dashed p-4 gap-x-8 gap-y-16 min-w-125 min-h-50">
-                {Object.entries(playerHand)
-                  .filter(([_, count]) => count > 0)
-                  .map(([color, count]) => {
-                    return (
-                      <div key={color} className="flex flex-col relative h-35">
-                        {Array.from({ length: count }).map((_, i) => (
-                          <div
-                            key={i}
-                            className="absolute transition-all"
-                            style={{
-                              zIndex: i,
-                              top: i * 20,
-                            }}
-                          >
-                            <TrainCards
-                              color={color === "rainbow" ? undefined : color}
-                              rainbow={color === "rainbow"}
-                              width={140}
-                              height={96}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })}
-              </div>
-            </div>
-
-            <div className="gap-2 flex flex-col justify-center">
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                Ticket Cards
-              </p>
-              <div className="flex flex-col justify-center border-2 border-dashed">
-                {playerTickets.map((c, i) => (
-                  <div
-                    key={i}
-                    className="transition-transform hover:-translate-y-1"
-                  >
-                    <TicketCard
-                      cityA={c.cityA}
-                      cityB={c.cityB}
-                      points={c.points}
-                      opposite={false}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-12">
-          <div
-            className="relative w-52.5 h-30 mt-10 cursor-pointer"
-            onClick={drawTickets}
-          >
-            {ticketDeck.map((t, i) => (
-              <div
-                key={i}
-                className="absolute transition-transform hover:-translate-y-1"
-                style={{
-                  top: -i * 2,
-                  left: i * 0.5,
-                  zIndex: i,
-                }}
-              >
-                <TicketCard
-                  cityA={t.cityA}
-                  cityB={t.cityB}
-                  points={t.points}
-                  opposite={true}
-                />
-              </div>
-            ))}
-            <div className="absolute -bottom-8 left-0 right-0 text-center text-xs font-bold uppercase tracking-wider text-zinc-500">
-              Ticket Deck ({ticketDeck.length})
-            </div>
-          </div>
-
-          <div
-            className="relative w-44 h-30 mt-16 cursor-pointer"
-            onClick={drawFromDeck}
-          >
-            {trainDeck.map((c, i) => (
-              <div
-                key={i}
-                className="absolute transition-transform hover:-translate-y-1"
-                style={{
-                  top: -i * 1.2,
-                  left: i * 0.5,
-                  zIndex: i,
-                }}
-              >
-                <TrainCards
-                  color={c.color}
-                  rainbow={!!c.rainbow}
-                  opposite={true}
-                />
-              </div>
-            ))}
-            <div className="absolute -bottom-8 left-0 right-0 text-center text-xs font-bold uppercase tracking-wider text-zinc-500">
-              Train Deck ({trainDeck.length})
-            </div>
-          </div>
-
-          <div className="relative w-44 mt-10">
-            <div className="mb-4 text-center text-xs font-bold uppercase tracking-wider text-zinc-500">
-              Cards on Display
-            </div>
-            <div className="flex flex-col gap-4">
-              {displayCards.map((c, i) => (
-                <div
-                  key={i}
-                  className="transition-transform hover:-translate-y-1 cursor-pointer"
-                  onClick={() => drawFromDisplay(i)}
-                >
-                  <TrainCards
-                    color={c.color}
-                    rainbow={!!c.rainbow}
-                    opposite={false}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="relative w-44 mt-10">
-            <div className="mb-4 text-center text-xs font-bold uppercase tracking-wider text-zinc-500">
-              Discard Pile ({discardPile.length})
-            </div>
-            <div className="flex flex-col gap-4">
-              {discardPile.slice(-1).map((c, i) => (
-                <div key={i} className="opacity-60">
-                  <TrainCards
-                    color={c.color}
-                    rainbow={!!c.rainbow}
-                    opposite={false}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </main>
+      <PlayerBoard
+        playerHand={playerHand}
+        playerTickets={playerTickets}
+        placedTiles={placedTiles}
+        drawingTickets={drawingTickets}
+        selectTickets={selectTickets}
+        spendCards={spendCards}
+        addPoints={addPoints}
+        canPlaceMore={canPlaceMore}
+        incrementPlaced={incrementPlaced}
+        incrementTurn={incrementTurn}
+        cardsDrawn={cardsDrawn}
+        isAiTurn={isAiTurn}
+        numAIs={numAIs}
+        claimedRoutes={claimedRoutes}
+        claimRoute={claimRoute}
+        ticketDeck={ticketDeck}
+        trainDeck={trainDeck}
+        discardPile={discardPile}
+        drawTickets={drawTickets}
+        drawFromDeck={drawFromDeck}
+        displayCards={displayCards}
+        onDrawFromDisplay={drawFromDisplay}
+      />
     </div>
   );
 }
