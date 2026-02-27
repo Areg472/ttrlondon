@@ -12,6 +12,8 @@ export function PlayerBoard({
   playerTickets,
   placedTiles,
   drawingTickets,
+  playerLabel = "Player",
+  playerClaimerKey = "player",
   selectTickets,
   spendCards,
   addPoints,
@@ -53,6 +55,7 @@ export function PlayerBoard({
                 numAIs,
                 claimedRoutes,
                 claimRoute,
+                playerClaimerKey,
               }}
             >
               <div
@@ -86,7 +89,7 @@ export function PlayerBoard({
           Scroll to explore the map
         </p>
         <p className="mt-10 text-lg text-zinc-500 dark:text-zinc-400">
-          Player board ({17 - placedTiles} train pieces left)
+          {playerLabel} board ({17 - placedTiles} train pieces left)
         </p>
 
         {drawingTickets && (

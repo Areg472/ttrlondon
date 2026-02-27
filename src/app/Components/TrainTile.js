@@ -21,6 +21,7 @@ export const PlayerHandContext = React.createContext({
   numAIs: 1,
   claimedRoutes: {},
   claimRoute: (_routeId, _side, _type) => {},
+  playerClaimerKey: "player",
 });
 
 export function TrainTileCont({
@@ -46,7 +47,11 @@ export function TrainTileCont({
         playerHand?.claimedRoutes?.[`${routeId}_${otherSide}`];
       if (otherClaimer) {
         const numAIs = playerHand?.numAIs ?? 1;
-        if (numAIs <= 1 || otherClaimer === "player") return false;
+        if (
+          numAIs <= 1 ||
+          otherClaimer === (playerHand?.playerClaimerKey ?? "player")
+        )
+          return false;
       }
     }
     if (playerHand?.isAiTurn) return false;
@@ -133,14 +138,22 @@ export function TrainTileCont({
         playerHand?.claimedRoutes?.[`${routeId}_${otherSide}`];
       if (otherClaimer) {
         const numAIs = playerHand?.numAIs ?? 1;
-        if (numAIs <= 1 || otherClaimer === "player") return;
+        if (
+          numAIs <= 1 ||
+          otherClaimer === (playerHand?.playerClaimerKey ?? "player")
+        )
+          return;
       }
       if (claimedSide && claimedSide !== side) return;
       if (!claimedSide && !trySpend()) return;
       if (!claimedSide) {
         setClaimedSide(side);
         if (playerHand?.claimRoute)
-          playerHand.claimRoute(routeId, side, "player");
+          playerHand.claimRoute(
+            routeId,
+            side,
+            playerHand?.playerClaimerKey ?? "player",
+          );
       }
       side === "even" ? setTrainTrigger(true) : setTrainTriggerDouble(true);
     } else {
@@ -154,7 +167,11 @@ export function TrainTileCont({
       if (!trySpend()) return;
       setTrainTrigger(true);
       if (playerHand?.claimRoute)
-        playerHand.claimRoute(routeId, "single", "player");
+        playerHand.claimRoute(
+          routeId,
+          "single",
+          playerHand?.playerClaimerKey ?? "player",
+        );
     }
   };
 

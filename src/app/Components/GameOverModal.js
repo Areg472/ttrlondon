@@ -3,13 +3,19 @@
 export function GameOverModal({
   score,
   aiScores,
+  extraManualScores = [],
   playerNumberBonuses,
   aiNumberBonuses,
   playerTicketResults,
   aiTicketResults,
+  extraManualTickets = [],
 }) {
   const allScores = [
-    { label: "Player", score },
+    { label: "Player 1", score },
+    ...extraManualScores.map((s, i) => ({
+      label: `Player ${i + 2}`,
+      score: s,
+    })),
     ...aiScores.map((s, i) => ({ label: `AI ${i + 1}`, score: s })),
   ];
   const winner = allScores.reduce(
@@ -28,26 +34,20 @@ export function GameOverModal({
         </p>
 
         <div className="flex gap-8 mb-12 flex-wrap justify-center">
-          <div className="flex flex-col">
-            <span className="text-sm text-zinc-400 uppercase font-bold mb-1">
-              Player
-            </span>
-            <span className="text-6xl font-black text-zinc-800 dark:text-zinc-100">
-              {score}
-            </span>
-          </div>
-          {aiScores.map((s, i) => (
+          {allScores.map((entry, i) => (
             <>
-              <div
-                key={`sep-${i}`}
-                className="w-px h-16 bg-zinc-200 dark:bg-zinc-800 self-center"
-              />
-              <div key={`ai-${i}`} className="flex flex-col">
+              {i > 0 && (
+                <div
+                  key={`sep-${i}`}
+                  className="w-px h-16 bg-zinc-200 dark:bg-zinc-800 self-center"
+                />
+              )}
+              <div key={`score-${i}`} className="flex flex-col">
                 <span className="text-sm text-zinc-400 uppercase font-bold mb-1">
-                  AI {i + 1}
+                  {entry.label}
                 </span>
                 <span className="text-6xl font-black text-zinc-800 dark:text-zinc-100">
-                  {s}
+                  {entry.score}
                 </span>
               </div>
             </>
@@ -121,10 +121,10 @@ export function GameOverModal({
         )}
 
         <div className="text-2xl font-bold mb-8">
-          {winner.label === "Player" ? (
-            <span className="text-green-500">Player Wins!</span>
-          ) : allScores.filter((s) => s.score === winner.score).length > 1 ? (
+          {allScores.filter((s) => s.score === winner.score).length > 1 ? (
             <span className="text-blue-500">It&#39;s a Tie!</span>
+          ) : winner.label.startsWith("Player") ? (
+            <span className="text-green-500">{winner.label} Wins!</span>
           ) : (
             <span className="text-red-500">{winner.label} Wins!</span>
           )}

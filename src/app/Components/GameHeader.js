@@ -6,13 +6,15 @@ export function GameHeader({
   isAiTurn,
   isPersonTurn,
   currentAiIndex,
+  isExtraManualTurn,
+  currentExtraManualIndex,
   lastRoundTriggered,
   gameOver,
 }) {
   return (
     <header className="mb-8 text-center flex items-center justify-center gap-12">
       <h1 className="text-4xl font-bold text-zinc-800 dark:text-zinc-100 mb-2">
-        Ticket to Ride London
+        Ticket to Ride London 🇬🇧
       </h1>
       <div className="z-50 select-none">
         <div className="backdrop-blur-sm border-2 border-zinc-800 rounded-2xl px-6 py-3 shadow-lg flex flex-col items-center">
@@ -37,9 +39,14 @@ export function GameHeader({
               AI {currentAiIndex + 1} Thinking...
             </span>
           )}
+          {isExtraManualTurn && !gameOver && (
+            <span className="text-[15px] uppercase font-black text-blue-400 mt-1">
+              Player {currentExtraManualIndex + 2}&apos;s Turn!
+            </span>
+          )}
           {isPersonTurn && !gameOver && (
             <span className="text-[15px] uppercase font-black text-red-400 mt-1">
-              Your Turn!
+              Player 1&apos;s Turn!
             </span>
           )}
           {lastRoundTriggered && !gameOver && (
