@@ -14,6 +14,7 @@ import { GameOverModal } from "./Components/GameOverModal";
 import { GameHeader } from "./Components/GameHeader";
 import { AiPanel } from "./Components/AiPanel";
 import { PlayerBoard } from "./Components/PlayerBoard";
+import { TicketSelection } from "./Components/TicketSelection";
 
 const checkThreeRainbows = (currentDisplay, currentDeck, currentDiscard) => {
   let display = [...currentDisplay],
@@ -35,6 +36,7 @@ const checkThreeRainbows = (currentDisplay, currentDeck, currentDiscard) => {
 export default function Home() {
   const [numAIs, setNumAIs] = useState(null);
   const [numExtraManual, setNumExtraManual] = useState(0);
+  const [aiDifficulty, setAiDifficulty] = useState("medium");
 
   const getInitialGameState = (n, extraManual = 0) => {
     const totalPlayers = 1 + extraManual + n;
@@ -146,6 +148,11 @@ export default function Home() {
   const [extraManualDrawingTickets, setExtraManualDrawingTickets] =
     useState(null);
   const [currentExtraManualIndex, setCurrentExtraManualIndex] = useState(-1);
+  const [
+    initialExtraManualSelectingIndex,
+    setInitialExtraManualSelectingIndex,
+  ] = useState(-1);
+  const initialExtraManualTicketsRef = useRef([]);
   const extraManualTicketsRef = useRef([]);
   const [score, setScore] = useState(0);
   const [aiScores, setAiScores] = useState([]);
@@ -184,7 +191,17 @@ export default function Home() {
   const isPlayer1Turn = currentAiIndex < 0 && currentExtraManualIndex < 0;
   const isPersonTurn = isPlayer1Turn;
 
-  const askAiToSelectTickets = async (drawnTickets, hand) => {
+  const askAiToSelectTickets = async (
+    drawnTickets,
+    hand,
+    difficulty = "medium",
+  ) => {
+    const difficultyInstruction =
+      difficulty === "easy"
+        ? "Pick tickets randomly — just keep index 0 always."
+        : difficulty === "hard"
+          ? "You are a highly strategic player. Keep both tickets if they share cities or overlap in route paths, maximising total points. Only discard a ticket if it is completely incompatible with your hand and the other ticket."
+          : "Choose which tickets to keep based on which are easier to complete given your hand and which score more points.";
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -197,7 +214,7 @@ export default function Home() {
             },
             {
               role: "user",
-              content: `You are choosing starting tickets. You have been dealt these 2 tickets: ${JSON.stringify(drawnTickets)}. Your starting hand is: ${JSON.stringify(hand)}. You MUST keep at least 1 ticket. Choose which tickets to keep based on which are easier to complete given your hand and which score more points. Respond with: { "keepIndices": [0] } or { "keepIndices": [0, 1] }`,
+              content: `You are choosing starting tickets. You have been dealt these 2 tickets: ${JSON.stringify(drawnTickets)}. Your starting hand is: ${JSON.stringify(hand)}. You MUST keep at least 1 ticket. ${difficultyInstruction} Respond with: { "keepIndices": [0] } or { "keepIndices": [0, 1] }`,
             },
           ],
         }),
@@ -218,7 +235,8 @@ export default function Home() {
     return [0];
   };
 
-  const startGame = async (n, extraManual = 0) => {
+  const startGame = async (n, extraManual = 0, difficulty = "medium") => {
+    setAiDifficulty(difficulty);
     const state = getInitialGameState(n, extraManual);
     setNumAIs(n);
     setNumExtraManual(extraManual);
@@ -227,8 +245,9 @@ export default function Home() {
     setExtraManualHands(state.extraManualHands);
     setExtraManualScores(Array(extraManual).fill(0));
     setExtraManualPlacedTiles(Array(extraManual).fill(0));
-    extraManualTicketsRef.current = state.extraManualTickets;
-    setExtraManualTickets(state.extraManualTickets);
+    extraManualTicketsRef.current = Array(extraManual).fill([]);
+    setExtraManualTickets(Array(extraManual).fill([]));
+    initialExtraManualTicketsRef.current = state.extraManualTickets;
     setAiHands(state.aiHands);
     setAiScores(Array(n).fill(0));
     setAiPlacedTiles(Array(n).fill(0));
@@ -237,19 +256,28 @@ export default function Home() {
     setDisplayCards(state.display);
     setTrainDeck(state.trainDeck);
     setTicketDeck(state.ticketDeck);
-    setDrawingTickets(state.drawingTickets);
+    setDrawingTickets(null);
     setAiSelectingTickets(true);
     setGameStarted(true);
 
     const chosenTickets = [];
     for (let i = 0; i < n; i++) {
       const drawn = state.aiTickets[i];
-      const kept = await askAiToSelectTickets(drawn, state.aiHands[i]);
+      const kept = await askAiToSelectTickets(
+        drawn,
+        state.aiHands[i],
+        difficulty,
+      );
       chosenTickets.push(kept.map((idx) => drawn[idx]));
     }
     aiTicketsRef.current = chosenTickets;
     setAiTickets(chosenTickets);
     setAiSelectingTickets(false);
+
+    setDrawingTickets(state.drawingTickets);
+    // Reset initial extra manual state
+    setInitialExtraManualSelectingIndex(-1);
+    setCurrentExtraManualIndex(-1);
   };
 
   const drawFromDisplay = (index) => {
@@ -547,6 +575,16 @@ export default function Home() {
     playerTicketsRef.current = nextPT;
     setPlayerTickets(nextPT);
     setDrawingTickets(null);
+    if (
+      numExtraManual > 0 &&
+      initialExtraManualSelectingIndex === -1 &&
+      extraManualTicketsRef.current.every((t) => t.length === 0)
+    ) {
+      setInitialExtraManualSelectingIndex(0);
+      setCurrentExtraManualIndex(0);
+      setExtraManualDrawingTickets(initialExtraManualTicketsRef.current[0]);
+      return;
+    }
     if (!gameOver) incrementTurn();
   };
 
@@ -674,6 +712,56 @@ export default function Home() {
       groups.get(n).push(c.name);
     }
     return groups;
+  };
+
+  const isTicketBlocked = (ticket, playerKey) => {
+    // Build graph of routes that are unclaimed OR owned by this player
+    const adj = new Map();
+    const addEdge = (u, v) => {
+      if (!adj.has(u)) adj.set(u, new Set());
+      adj.get(u).add(v);
+    };
+    for (const route of ROUTES) {
+      let connects = null;
+      if (Array.isArray(route.connects) && route.connects.length === 2) {
+        connects = route.connects;
+      } else {
+        connects = inferRouteConnectsByGeometry(route);
+      }
+      if (!connects || !connects[0] || !connects[1]) continue;
+      const [a, b] = connects;
+      if (route.isDouble) {
+        for (const side of ["even", "odd"]) {
+          const key = `${route.id}_${side}`;
+          const claimer = claimedRoutes[key];
+          if (!claimer || claimer === playerKey) {
+            addEdge(a, b);
+            addEdge(b, a);
+          }
+        }
+      } else {
+        const key = `${route.id}_single`;
+        const claimer = claimedRoutes[key];
+        if (!claimer || claimer === playerKey) {
+          addEdge(a, b);
+          addEdge(b, a);
+        }
+      }
+    }
+    // BFS to check reachability
+    const visited = new Set([ticket.cityA]);
+    const q = [ticket.cityA];
+    while (q.length) {
+      const u = q.shift();
+      if (u === ticket.cityB) return false; // still reachable → not blocked
+      for (const v of adj.get(u) || []) {
+        if (!visited.has(v)) {
+          visited.add(v);
+          q.push(v);
+        }
+      }
+    }
+    return true; // cityB unreachable → blocked
   };
 
   const isSetFullyConnected = (edges, names) => {
@@ -1013,6 +1101,39 @@ export default function Home() {
       ticketAnalysis,
     };
 
+    const difficultyPrompt =
+      aiDifficulty === "easy"
+        ? `You are playing randomly and poorly. Ignore strategy completely.
+${
+  gameState.cardsDrawn === 1
+    ? `cardsDrawn=1: just draw_deck.`
+    : `cardsDrawn=0: always draw_deck unless you happen to have enough cards to place_tiles on any affordable route, in which case place_tiles on the first one you find.`
+}`
+        : aiDifficulty === "hard"
+          ? `You are a highly strategic expert player. Your goals in order:
+${
+  gameState.cardsDrawn === 1
+    ? `cardsDrawn=1: draw ONE more card. Pick the display card where isNeeded=true AND canDrawNow=true AND isRainbow=false with the highest trainCount (hardest to collect = most valuable). If none, draw_deck.`
+    : `cardsDrawn=0 — follow this priority:
+1. BLOCK opponents: if playerTurnActions shows the player just claimed a route, check if any of your incomplete tickets share cities with the player's claimed routes. If a key connecting route for your ticket is still unclaimed and affordable, claim it immediately to secure it before the player does.
+2. affordableRoutes has any entry with alreadyOwned=false for any incomplete ticket? → place_tiles on the route that completes the highest-points ticket first. Among ties, prefer routes with higher trainCount (more points). Use routeId, side, color from affordableRoutes.
+3. usefulRoutes non-empty but none affordable? → draw the display card where isNeeded=true AND canDrawNow=true, preferring rainbow first (cardsDrawn=0), then the color needed by the highest-points incomplete ticket. If no such display card, draw_deck.
+4. All incomplete tickets have empty usefulRoutes AND ticketDeckCount>0? → draw_tickets to get more objectives.
+5. Otherwise → draw_deck.`
+}`
+          : `cardsDrawn=${gameState.cardsDrawn}. displayCardOptions=${JSON.stringify(gameState.displayCardOptions)} (index=position, isNeeded=helps your tickets, canDrawNow=allowed by rules).
+
+Follow EXACTLY:
+${
+  gameState.cardsDrawn === 1
+    ? `cardsDrawn=1: draw ONE more card. Priority: pick the display card with the highest index where isNeeded=true AND canDrawNow=true AND isRainbow=false. If none, draw_deck.`
+    : `cardsDrawn=0 priority order (stop at first that applies):
+1. affordableRoutes has any entry with alreadyOwned=false for any incomplete ticket? → place_tiles on that unowned route (highest points ticket first, prefer routes with alreadyOwned=false). Use routeId, side, color from that affordableRoutes entry. NOTE: routes with alreadyOwned=true are already claimed by you and count toward multiple tickets for free — never place_tiles on them.
+2. usefulRoutes non-empty but none affordable? → draw the display card where isNeeded=true AND canDrawNow=true (prefer rainbow if available and cardsDrawn=0, else pick the needed color with lowest trainCount requirement). If no such display card, draw_deck.
+3. All incomplete tickets have empty usefulRoutes AND ticketDeckCount>0? → draw_tickets.
+4. Otherwise → draw_deck.`
+}`;
+
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -1027,18 +1148,7 @@ export default function Home() {
               role: "user",
               content: `State: ${JSON.stringify(gameState)}
 
-cardsDrawn=${gameState.cardsDrawn}. displayCardOptions=${JSON.stringify(gameState.displayCardOptions)} (index=position, isNeeded=helps your tickets, canDrawNow=allowed by rules).
-
-Follow EXACTLY:
-${
-  gameState.cardsDrawn === 1
-    ? `cardsDrawn=1: draw ONE more card. Priority: pick the display card with the highest index where isNeeded=true AND canDrawNow=true AND isRainbow=false. If none, draw_deck.`
-    : `cardsDrawn=0 priority order (stop at first that applies):
-1. affordableRoutes has any entry with alreadyOwned=false for any incomplete ticket? → place_tiles on that unowned route (highest points ticket first, prefer routes with alreadyOwned=false). Use routeId, side, color from that affordableRoutes entry. NOTE: routes with alreadyOwned=true are already claimed by you and count toward multiple tickets for free — never place_tiles on them.
-2. usefulRoutes non-empty but none affordable? → draw the display card where isNeeded=true AND canDrawNow=true (prefer rainbow if available and cardsDrawn=0, else pick the needed color with lowest trainCount requirement). If no such display card, draw_deck.
-3. All incomplete tickets have empty usefulRoutes AND ticketDeckCount>0? → draw_tickets.
-4. Otherwise → draw_deck.`
-}
+${difficultyPrompt}
 
 Actions: {"action":"draw_display","index":0-4} | {"action":"draw_deck"} | {"action":"draw_tickets"} | {"action":"place_tiles","routeId":N,"side":"single"|"even"|"odd","color":"colorname"}
 Respond with ONE JSON object only.`,
@@ -1099,6 +1209,7 @@ Respond with ONE JSON object only.`,
     trainDeck,
     ticketDeck,
     claimedRoutes,
+    aiDifficulty,
   ]);
 
   const executeAiAction = (action) => {
@@ -1252,7 +1363,7 @@ Respond with ONE JSON object only.`,
             },
             {
               role: "user",
-              content: `You are choosing new tickets mid-game. Your current tickets: ${JSON.stringify(currentTickets)}. You drew these 2 new tickets: ${JSON.stringify(drawn)}. Your hand: ${JSON.stringify(currentHand)}. You MUST keep at least 1 of the new tickets. Choose which new tickets to keep based on synergy with existing tickets, your hand, and point value. Respond with: { "keepIndices": [0] } or { "keepIndices": [0, 1] }`,
+              content: `You are choosing new tickets mid-game. Your current tickets: ${JSON.stringify(currentTickets)}. You drew these 2 new tickets: ${JSON.stringify(drawn)}. Your hand: ${JSON.stringify(currentHand)}. You MUST keep at least 1 of the new tickets. ${aiDifficulty === "easy" ? "Just keep index 0 always." : aiDifficulty === "hard" ? "You are highly strategic: keep both tickets if they share cities or overlap routes with your existing tickets, maximising total points. Only discard if completely incompatible." : "Choose which new tickets to keep based on synergy with existing tickets, your hand, and point value."} Respond with: { "keepIndices": [0] } or { "keepIndices": [0, 1] }`,
             },
           ],
         }),
@@ -1369,6 +1480,31 @@ Respond with ONE JSON object only.`,
     }
   };
 
+  const selectInitialExtraManualTickets = (selectedIndices) => {
+    if (selectedIndices.length < 1) return;
+    const idx = initialExtraManualSelectingIndex;
+    const drawn = initialExtraManualTicketsRef.current[idx];
+    const selected = selectedIndices.map((i) => drawn[i]);
+    const nextET = extraManualTicketsRef.current.map((t, i) =>
+      i === idx ? [...t, ...selected] : t,
+    );
+    extraManualTicketsRef.current = nextET;
+    setExtraManualTickets(nextET);
+    setExtraManualDrawingTickets(null);
+    const nextIdx = idx + 1;
+    if (nextIdx < numExtraManual) {
+      setInitialExtraManualSelectingIndex(nextIdx);
+      setCurrentExtraManualIndex(nextIdx);
+      setExtraManualDrawingTickets(
+        initialExtraManualTicketsRef.current[nextIdx],
+      );
+    } else {
+      setInitialExtraManualSelectingIndex(-1);
+      setCurrentExtraManualIndex(-1);
+      if (!gameOver) incrementTurn();
+    }
+  };
+
   if (!rulesShown) {
     return <RulesPanel onFinish={() => setRulesShown(true)} />;
   }
@@ -1417,6 +1553,54 @@ Respond with ONE JSON object only.`,
       />
 
       <div className="flex flex-row flex-wrap gap-4">
+        {extraManualHands.map((hand, i) => (
+          <div key={i}>
+            <div className="flex gap-4 mb-4">
+              <div
+                className={`text-white p-3 rounded-xl shadow-lg flex gap-6 ${
+                  isExtraManualTurn &&
+                  currentExtraManualIndex === i &&
+                  !gameOver
+                    ? "bg-blue-700"
+                    : "bg-zinc-500"
+                }`}
+              >
+                <div className="flex flex-col items-center">
+                  <span className="text-[9px] uppercase font-bold text-zinc-400">
+                    P{i + 2} Points
+                  </span>
+                  <span className="text-lg font-black">
+                    {extraManualScores[i] ?? 0}
+                  </span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <span className="text-[9px] uppercase font-bold text-zinc-400">
+                    P{i + 2} Pieces
+                  </span>
+                  <span className="text-lg font-black">
+                    {17 - (extraManualPlacedTiles[i] || 0)}
+                  </span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <span className="text-[9px] uppercase font-bold text-zinc-400">
+                    P{i + 2} Cards
+                  </span>
+                  <span className="text-lg font-black">
+                    {Object.values(hand).reduce((a, b) => a + b, 0)}
+                  </span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <span className="text-[9px] uppercase font-bold text-zinc-400">
+                    P{i + 2} Tickets
+                  </span>
+                  <span className="text-lg font-black">
+                    {(extraManualTickets[i] || []).length}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
         {aiHands.map((hand, i) => (
           <AiPanel
             key={i}
@@ -1438,11 +1622,20 @@ Respond with ONE JSON object only.`,
             ? extraManualHands[currentExtraManualIndex]
             : playerHand
         }
-        playerTickets={
-          isExtraManualTurn
+        playerTickets={(() => {
+          const tickets = isExtraManualTurn
             ? extraManualTickets[currentExtraManualIndex] || []
-            : playerTickets
-        }
+            : playerTickets;
+          const key = isExtraManualTurn
+            ? `player${currentExtraManualIndex + 2}`
+            : "player";
+          const edges = getClaimedEdges(key);
+          return tickets.map((t) => ({
+            ...t,
+            blocked: isTicketBlocked(t, key),
+            completed: isConnectedViaEdges(edges, t.cityA, t.cityB),
+          }));
+        })()}
         placedTiles={
           isExtraManualTurn
             ? extraManualPlacedTiles[currentExtraManualIndex] || 0
@@ -1456,7 +1649,11 @@ Respond with ONE JSON object only.`,
             ? `Player ${currentExtraManualIndex + 2}`
             : "Player 1"
         }
-        selectTickets={selectTickets}
+        selectTickets={
+          initialExtraManualSelectingIndex >= 0
+            ? selectInitialExtraManualTickets
+            : selectTickets
+        }
         spendCards={spendCards}
         addPoints={addPoints}
         canPlaceMore={canPlaceMore}

@@ -150,6 +150,8 @@ export function PlayerBoard({
                     cityB={c.cityB}
                     points={c.points}
                     opposite={false}
+                    blocked={!!c.blocked}
+                    completed={!!c.completed}
                   />
                 </div>
               ))}

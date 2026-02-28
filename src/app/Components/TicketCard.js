@@ -12,6 +12,8 @@ export function TicketCard({
   width = 210,
   height = 120,
   opposite = false,
+  blocked = false,
+  completed = false,
 }) {
   const getCityData = (name, manualPos) => {
     const city = CITIES.find((c) => c.name === name);
@@ -43,6 +45,28 @@ export function TicketCard({
           backgroundSize: "10px 10px",
         }}
       />
+
+      {blocked && !opposite && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
+          <span
+            className="text-red-600 font-black select-none"
+            style={{ fontSize: width * 0.55, lineHeight: 1, opacity: 0.75 }}
+          >
+            ✕
+          </span>
+        </div>
+      )}
+
+      {completed && !opposite && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
+          <span
+            className="text-green-500 font-black select-none"
+            style={{ fontSize: width * 0.55, lineHeight: 1, opacity: 0.75 }}
+          >
+            ✓
+          </span>
+        </div>
+      )}
 
       {opposite ? (
         <div className="absolute inset-0 flex items-center justify-center">
