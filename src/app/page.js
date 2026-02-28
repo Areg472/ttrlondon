@@ -143,6 +143,7 @@ export default function Home() {
   const [aiHands, setAiHands] = useState([]);
   const [extraManualHands, setExtraManualHands] = useState([]);
   const [extraManualScores, setExtraManualScores] = useState([]);
+  const [extraManualLastActions, setExtraManualLastActions] = useState([]);
   const [extraManualPlacedTiles, setExtraManualPlacedTiles] = useState([]);
   const [extraManualTickets, setExtraManualTickets] = useState([]);
   const [extraManualDrawingTickets, setExtraManualDrawingTickets] =
@@ -244,6 +245,7 @@ export default function Home() {
     setPlayerHand(state.playerHand);
     setExtraManualHands(state.extraManualHands);
     setExtraManualScores(Array(extraManual).fill(0));
+    setExtraManualLastActions(Array(extraManual).fill(null));
     setExtraManualPlacedTiles(Array(extraManual).fill(0));
     extraManualTicketsRef.current = Array(extraManual).fill([]);
     setExtraManualTickets(Array(extraManual).fill([]));
@@ -309,6 +311,9 @@ export default function Home() {
           i === idx ? { ...h, [colorKey]: (h[colorKey] ?? 0) + 1 } : h,
         ),
       );
+      setExtraManualLastActions((prev) =>
+        prev.map((a, i) => (i === idx ? "Drew from the display" : a)),
+      );
     } else {
       setPlayerHand((prev) => ({
         ...prev,
@@ -373,6 +378,9 @@ export default function Home() {
         prev.map((h, i) =>
           i === idx ? { ...h, [colorKey]: (h[colorKey] ?? 0) + 1 } : h,
         ),
+      );
+      setExtraManualLastActions((prev) =>
+        prev.map((a, i) => (i === idx ? "Drew from the deck" : a)),
       );
     } else {
       setPlayerHand((prev) => ({
@@ -566,6 +574,11 @@ export default function Home() {
       extraManualTicketsRef.current = nextET;
       setExtraManualTickets(nextET);
       setExtraManualDrawingTickets(null);
+      setExtraManualLastActions((prev) =>
+        prev.map((a, i) =>
+          i === emIdx ? `Drew tickets, kept ${selected.length}` : a,
+        ),
+      );
       if (!gameOver) incrementTurn();
       return;
     }
@@ -601,6 +614,18 @@ export default function Home() {
   const claimRoute = (routeId, side, type) => {
     if (type === "player" || type.startsWith("player")) {
       logPlayerAction({ action: "claim_route", routeId, side });
+    }
+    if (isExtraManualTurn) {
+      const route = ROUTES.find((r) => r.id === routeId);
+      const length = route ? route.trainCount : 0;
+      const emIdx = currentExtraManualIndex;
+      setExtraManualLastActions((prev) =>
+        prev.map((a, i) =>
+          i === emIdx
+            ? `Claimed route (${length} train${length !== 1 ? "s" : ""})`
+            : a,
+        ),
+      );
     }
     const next = { ...claimedRoutesRef.current, [`${routeId}_${side}`]: type };
     claimedRoutesRef.current = next;
@@ -1553,54 +1578,120 @@ Respond with ONE JSON object only.`,
       />
 
       <div className="flex flex-row flex-wrap gap-4">
-        {extraManualHands.map((hand, i) => (
-          <div key={i}>
+        {/* P1 panel — hidden when it's P1's turn (they see their own board) */}
+        {!isPlayer1Turn && (
+          <div>
             <div className="flex gap-4 mb-4">
-              <div
-                className={`text-white p-3 rounded-xl shadow-lg flex gap-6 ${
-                  isExtraManualTurn &&
-                  currentExtraManualIndex === i &&
-                  !gameOver
-                    ? "bg-blue-700"
-                    : "bg-zinc-500"
-                }`}
-              >
+              <div className="text-white p-4 rounded-xl shadow-lg flex gap-8 bg-zinc-500">
                 <div className="flex flex-col items-center">
-                  <span className="text-[9px] uppercase font-bold text-zinc-400">
-                    P{i + 2} Points
+                  <span className="text-[10px] uppercase font-bold text-zinc-400">
+                    P1 Points
                   </span>
-                  <span className="text-lg font-black">
-                    {extraManualScores[i] ?? 0}
+                  <span className="text-2xl font-black">{score}</span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <span className="text-[10px] uppercase font-bold text-zinc-400">
+                    P1 Train Pieces
+                  </span>
+                  <span className="text-2xl font-black">
+                    {17 - placedTiles}
                   </span>
                 </div>
                 <div className="flex flex-col items-center">
-                  <span className="text-[9px] uppercase font-bold text-zinc-400">
-                    P{i + 2} Pieces
+                  <span className="text-[10px] uppercase font-bold text-zinc-400">
+                    P1 Train Cards
                   </span>
-                  <span className="text-lg font-black">
-                    {17 - (extraManualPlacedTiles[i] || 0)}
-                  </span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <span className="text-[9px] uppercase font-bold text-zinc-400">
-                    P{i + 2} Cards
-                  </span>
-                  <span className="text-lg font-black">
-                    {Object.values(hand).reduce((a, b) => a + b, 0)}
+                  <span className="text-2xl font-black">
+                    {Object.values(playerHand).reduce((a, b) => a + b, 0)}
                   </span>
                 </div>
                 <div className="flex flex-col items-center">
-                  <span className="text-[9px] uppercase font-bold text-zinc-400">
-                    P{i + 2} Tickets
+                  <span className="text-[10px] uppercase font-bold text-zinc-400">
+                    P1 Tickets
                   </span>
-                  <span className="text-lg font-black">
-                    {(extraManualTickets[i] || []).length}
+                  <span className="text-2xl font-black">
+                    {playerTickets.length}
                   </span>
                 </div>
               </div>
             </div>
+            <div className="flex gap-4 justify-center mb-4">
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                <span className="font-bold text-zinc-700 dark:text-zinc-200">
+                  P1 last action:
+                </span>{" "}
+                {playerTurnActions.length > 0
+                  ? (() => {
+                      const last =
+                        playerTurnActions[playerTurnActions.length - 1];
+                      if (last.action === "draw_display")
+                        return `Drew from the display`;
+                      if (last.action === "draw_deck")
+                        return `Drew from the deck`;
+                      if (last.action === "select_tickets")
+                        return `Drew tickets, kept ${last.tickets?.length ?? 1}`;
+                      if (last.action === "claim_route")
+                        return `Claimed a route`;
+                      return "None yet";
+                    })()
+                  : "None yet"}
+              </p>
+            </div>
           </div>
-        ))}
+        )}
+        {extraManualHands.map((hand, i) =>
+          // Hide the panel of whichever extra manual player is currently active (they see their own board)
+          isExtraManualTurn && currentExtraManualIndex === i ? null : (
+            <div key={i}>
+              <div className="flex gap-4 mb-4">
+                <div
+                  className={`text-white p-4 rounded-xl shadow-lg flex gap-8 bg-zinc-500`}
+                >
+                  <div className="flex flex-col items-center">
+                    <span className="text-[10px] uppercase font-bold text-zinc-400">
+                      P{i + 2} Points
+                    </span>
+                    <span className="text-2xl font-black">
+                      {extraManualScores[i] ?? 0}
+                    </span>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <span className="text-[10px] uppercase font-bold text-zinc-400">
+                      P{i + 2} Train Pieces
+                    </span>
+                    <span className="text-2xl font-black">
+                      {17 - (extraManualPlacedTiles[i] || 0)}
+                    </span>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <span className="text-[10px] uppercase font-bold text-zinc-400">
+                      P{i + 2} Train Cards
+                    </span>
+                    <span className="text-2xl font-black">
+                      {Object.values(hand).reduce((a, b) => a + b, 0)}
+                    </span>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <span className="text-[10px] uppercase font-bold text-zinc-400">
+                      P{i + 2} Tickets
+                    </span>
+                    <span className="text-2xl font-black">
+                      {(extraManualTickets[i] || []).length}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-4 justify-center mb-4">
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                  <span className="font-bold text-zinc-700 dark:text-zinc-200">
+                    P{i + 2} last action:
+                  </span>{" "}
+                  {extraManualLastActions[i] ?? "None yet"}
+                </p>
+              </div>
+            </div>
+          ),
+        )}
         {aiHands.map((hand, i) => (
           <AiPanel
             key={i}
