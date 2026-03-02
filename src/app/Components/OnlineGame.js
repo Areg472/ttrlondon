@@ -447,7 +447,6 @@ export function OnlineGame({ roomId, playerName, isHost }) {
       state.cardsDrawn = 0;
       return state;
     });
-    setCardsDrawnLocal(0);
   }, [updateGameState]);
 
   const selectTickets = useCallback(
@@ -836,7 +835,7 @@ export function OnlineGame({ roomId, playerName, isHost }) {
       {/* Initial ticket selection overlay */}
       {isInitialTicketSelection && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="bg-white dark:bg-zinc-800 rounded-3xl p-10 shadow-2xl flex flex-col items-center gap-4 max-w-md w-full">
+          <div className="bg-white dark:bg-zinc-800 rounded-3xl p-10 shadow-2xl flex flex-col items-center gap-4 w-full max-w-2xl mx-4">
             <div className="text-2xl font-black text-zinc-800 dark:text-zinc-100">
               Choose your starting tickets
             </div>
@@ -854,7 +853,7 @@ export function OnlineGame({ roomId, playerName, isHost }) {
       {/* Mid-game ticket drawing */}
       {isDrawingTickets && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="bg-white dark:bg-zinc-800 rounded-3xl p-10 shadow-2xl flex flex-col items-center gap-4 max-w-md w-full">
+          <div className="bg-white dark:bg-zinc-800 rounded-3xl p-10 shadow-2xl flex flex-col items-center gap-4 w-full max-w-2xl mx-4">
             <div className="text-2xl font-black text-zinc-800 dark:text-zinc-100">
               Choose tickets to keep
             </div>

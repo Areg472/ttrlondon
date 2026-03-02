@@ -219,7 +219,15 @@ export function TrainTileCont({
             ? "#9D6192"
             : claimType === "ai2"
               ? "#D6A77B"
-              : "#008080",
+              : claimType === "player"
+                ? "#008080"
+                : claimType === "player2"
+                  ? "#E05C2A"
+                  : claimType === "player3"
+                    ? "#7B3FC4"
+                    : claimType === "player4"
+                      ? "#C4A020"
+                      : "#008080",
       childPosition,
       index,
       disabled,
