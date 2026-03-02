@@ -10,6 +10,9 @@
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.30",
+    "@liveblocks/client": "^3.14.1",
+    "@liveblocks/node": "^3.14.1",
+    "@liveblocks/react": "^3.14.1",
     "@openrouter/ai-sdk-provider": "^2.2.3",
     "@types/node": "^25.3.0",
     "ai": "^6.0.97",
