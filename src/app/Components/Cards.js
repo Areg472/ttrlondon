@@ -17,7 +17,7 @@ export function TrainCards({
 
  return (
  <div
- className="relative rounded-lg shadow-md border border-zinc-300 bg-white overflow-hidden select-none"
+ className="relative rounded-lg shadow-md border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 overflow-hidden select-none"
  style={{ width, height }}
  >
  <div
@@ -30,7 +30,7 @@ export function TrainCards({
 
  {opposite ? (
  <div className="absolute inset-0 flex items-center justify-center">
- <span className="text-2xl font-black tracking-widest text-zinc-800 opacity-20 transform -rotate-6 select-none">
+ <span className="text-2xl font-black tracking-widest text-zinc-800 dark:text-zinc-100 opacity-20 transform -rotate-6 select-none">
  TRAIN
  </span>
  </div>
@@ -39,7 +39,7 @@ export function TrainCards({
  className="absolute inset-0 transition-transform hover:scale-105 cursor-pointer flex items-center justify-center"
  style={faceStyle}
  >
- <div className="w-10 h-10 rounded-full bg-white/60 border border-zinc-400 shadow-inner" />
+ <div className="w-10 h-10 rounded-full bg-white dark:bg-zinc-800/60 border border-zinc-400 shadow-inner" />
  </div>
  )}
  </div>

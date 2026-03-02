@@ -1583,14 +1583,14 @@ Respond with ONE JSON object only.`,
  }
 
  return (
- <div className="flex min-h-screen flex-col items-center bg-zinc-100 font-sans p-8">
+ <div className="flex min-h-screen flex-col items-center bg-zinc-100 dark:bg-zinc-900 font-sans p-8">
  {aiSelectingTickets && (
  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
- <div className="bg-white rounded-3xl p-10 shadow-2xl flex flex-col items-center gap-4">
- <div className="text-2xl font-black text-zinc-800 ">
+ <div className="bg-white dark:bg-zinc-800 rounded-3xl p-10 shadow-2xl flex flex-col items-center gap-4">
+ <div className="text-2xl font-black text-zinc-800 dark:text-zinc-100 ">
  AIs are choosing tickets…
  </div>
- <div className="text-zinc-500 text-sm">
+ <div className="text-zinc-500 dark:text-zinc-400 text-sm">
  Please wait
  </div>
  </div>
@@ -1610,11 +1610,11 @@ Respond with ONE JSON object only.`,
  )}
 
  {roomId && (
- <div className="fixed top-4 right-4 z-50 bg-white border border-zinc-200 rounded-2xl px-4 py-2 shadow-lg flex flex-col items-center">
+ <div className="fixed top-4 right-4 z-50 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl px-4 py-2 shadow-lg flex flex-col items-center">
  <span className="text-[10px] uppercase font-bold text-zinc-400 tracking-widest">
  Room Code
  </span>
- <span className="text-xl font-black text-zinc-800 tracking-widest">
+ <span className="text-xl font-black text-zinc-800 dark:text-zinc-100 tracking-widest">
  {roomId}
  </span>
  </div>
@@ -1636,7 +1636,7 @@ Respond with ONE JSON object only.`,
  {!isPlayer1Turn && (
  <div>
  <div className="flex gap-4 mb-4">
- <div className="text-white p-4 rounded-xl shadow-lg flex gap-8 bg-zinc-500">
+ <div className="text-white p-4 rounded-xl shadow-lg flex gap-8 bg-zinc-50 dark:bg-zinc-8000">
  <div className="flex flex-col items-center">
  <span className="text-[10px] uppercase font-bold text-zinc-400">
  P1 Points
@@ -1670,8 +1670,8 @@ Respond with ONE JSON object only.`,
  </div>
  </div>
  <div className="flex gap-4 justify-center mb-4">
- <p className="text-sm text-zinc-500 ">
- <span className="font-bold text-zinc-700 ">
+ <p className="text-sm text-zinc-500 dark:text-zinc-400 ">
+ <span className="font-bold text-zinc-700 dark:text-zinc-200 ">
  P1 last action:
  </span>{" "}
  {playerTurnActions.length > 0
@@ -1698,7 +1698,7 @@ Respond with ONE JSON object only.`,
  <div key={i}>
  <div className="flex gap-4 mb-4">
  <div
- className={`text-white p-4 rounded-xl shadow-lg flex gap-8 bg-zinc-500`}
+ className={`text-white p-4 rounded-xl shadow-lg flex gap-8 bg-zinc-50 dark:bg-zinc-8000`}
  >
  <div className="flex flex-col items-center">
  <span className="text-[10px] uppercase font-bold text-zinc-400">
@@ -1735,8 +1735,8 @@ Respond with ONE JSON object only.`,
  </div>
  </div>
  <div className="flex gap-4 justify-center mb-4">
- <p className="text-sm text-zinc-500 ">
- <span className="font-bold text-zinc-700 ">
+ <p className="text-sm text-zinc-500 dark:text-zinc-400 ">
+ <span className="font-bold text-zinc-700 dark:text-zinc-200 ">
  P{i + 2} last action:
  </span>{" "}
  {extraManualLastActions[i] ?? "None yet"}

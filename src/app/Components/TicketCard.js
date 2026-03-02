@@ -35,7 +35,7 @@ export function TicketCard({
 
  return (
  <div
- className="rounded-lg shadow-md border border-zinc-300 bg-amber-50 relative overflow-hidden select-none"
+ className="rounded-lg shadow-md border border-zinc-300 dark:border-zinc-600 bg-amber-50 relative overflow-hidden select-none"
  style={{ width, height }}
  >
  <div
@@ -70,13 +70,13 @@ export function TicketCard({
 
  {opposite ? (
  <div className="absolute inset-0 flex items-center justify-center">
- <span className="text-3xl font-black tracking-widest text-zinc-800 opacity-20 transform -rotate-12 select-none">
+ <span className="text-3xl font-black tracking-widest text-zinc-800 dark:text-zinc-100 opacity-20 transform -rotate-12 select-none">
  TICKET
  </span>
  </div>
  ) : (
  <>
- <div className="absolute top-2 right-4 text-lg font-bold text-zinc-800 z-10">
+ <div className="absolute top-2 right-4 text-lg font-bold text-zinc-800 dark:text-zinc-100 z-10">
  {points}
  </div>
 

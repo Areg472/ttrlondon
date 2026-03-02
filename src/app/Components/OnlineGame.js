@@ -240,17 +240,17 @@ function WaitingForPlayers({ children, roomId }) {
  const others = useOthers();
  if (others.length === 0) {
  return (
- <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-100 font-sans p-8">
- <div className="bg-white p-12 rounded-[40px] shadow-2xl border border-zinc-200 flex flex-col items-center max-w-md w-full text-center gap-6">
- <h1 className="text-4xl font-black text-zinc-800 ">
+ <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-100 dark:bg-zinc-900 font-sans p-8">
+ <div className="bg-white dark:bg-zinc-800 p-12 rounded-[40px] shadow-2xl border border-zinc-200 dark:border-zinc-700 flex flex-col items-center max-w-md w-full text-center gap-6">
+ <h1 className="text-4xl font-black text-zinc-800 dark:text-zinc-100 ">
  Waiting for players…
  </h1>
  <p className="text-zinc-400 text-sm font-semibold">
  Share this room code with a friend to start playing.
  </p>
  {roomId && (
- <div className="bg-zinc-100 rounded-2xl px-8 py-4">
- <span className="text-3xl font-black tracking-widest text-zinc-800 ">
+ <div className="bg-zinc-100 dark:bg-zinc-900 rounded-2xl px-8 py-4">
+ <span className="text-3xl font-black tracking-widest text-zinc-800 dark:text-zinc-100 ">
  {roomId}
  </span>
  </div>
@@ -280,33 +280,33 @@ function RoomLobby({ roomId, playerName, isHost, onStart }) {
  };
 
  return (
- <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-100 font-sans p-8">
- <div className="bg-white p-12 rounded-[40px] shadow-2xl border border-zinc-200 flex flex-col items-center max-w-md w-full text-center gap-6">
- <h1 className="text-4xl font-black text-zinc-800 ">
+ <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-100 dark:bg-zinc-900 font-sans p-8">
+ <div className="bg-white dark:bg-zinc-800 p-12 rounded-[40px] shadow-2xl border border-zinc-200 dark:border-zinc-700 flex flex-col items-center max-w-md w-full text-center gap-6">
+ <h1 className="text-4xl font-black text-zinc-800 dark:text-zinc-100 ">
  Room Lobby
  </h1>
- <div className="bg-zinc-100 rounded-2xl px-8 py-4">
+ <div className="bg-zinc-100 dark:bg-zinc-900 rounded-2xl px-8 py-4">
  <span className="text-xs uppercase font-bold text-zinc-400 tracking-widest block mb-1">
  Room Code
  </span>
- <span className="text-3xl font-black tracking-widest text-zinc-800 ">
+ <span className="text-3xl font-black tracking-widest text-zinc-800 dark:text-zinc-100 ">
  {roomId}
  </span>
  </div>
  <div className="w-full flex flex-col gap-2">
- <div className="flex items-center gap-3 bg-zinc-50 rounded-xl px-4 py-3">
+ <div className="flex items-center gap-3 bg-zinc-50 dark:bg-zinc-800 rounded-xl px-4 py-3">
  <span className="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
- <span className="font-semibold text-zinc-800 ">
+ <span className="font-semibold text-zinc-800 dark:text-zinc-100 ">
  {self?.presence?.name || playerName} (you)
  </span>
  </div>
  {others.map((o) => (
  <div
  key={o.connectionId}
- className="flex items-center gap-3 bg-zinc-50 rounded-xl px-4 py-3"
+ className="flex items-center gap-3 bg-zinc-50 dark:bg-zinc-800 rounded-xl px-4 py-3"
  >
  <span className="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
- <span className="font-semibold text-zinc-800 ">
+ <span className="font-semibold text-zinc-800 dark:text-zinc-100 ">
  {o.presence?.name || "Player"}
  </span>
  </div>
@@ -327,7 +327,7 @@ function RoomLobby({ roomId, playerName, isHost, onStart }) {
  : `Start Game (${totalPlayers} players)`}
  </button>
  ) : (
- <p className="text-zinc-500 text-sm font-semibold">
+ <p className="text-zinc-500 dark:text-zinc-400 text-sm font-semibold">
  Waiting for host to start the game…
  </p>
  )}
@@ -739,7 +739,7 @@ export function OnlineGame({ roomId, playerName, isHost }) {
  );
 
  return (
- <div className="flex min-h-screen flex-col items-center bg-zinc-100 font-sans p-8">
+ <div className="flex min-h-screen flex-col items-center bg-zinc-100 dark:bg-zinc-900 font-sans p-8">
  {gameState.gameOver && (
  <GameOverModal
  score={myPlayer?.score ?? 0}
@@ -767,11 +767,11 @@ export function OnlineGame({ roomId, playerName, isHost }) {
  </div>
  )}
 
- <div className="fixed top-4 right-4 z-50 bg-white border border-zinc-200 rounded-2xl px-4 py-2 shadow-lg flex flex-col items-center">
+ <div className="fixed top-4 right-4 z-50 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl px-4 py-2 shadow-lg flex flex-col items-center">
  <span className="text-[10px] uppercase font-bold text-zinc-400 tracking-widest">
  Room
  </span>
- <span className="text-xl font-black text-zinc-800 tracking-widest">
+ <span className="text-xl font-black text-zinc-800 dark:text-zinc-100 tracking-widest">
  {roomId}
  </span>
  </div>
@@ -796,7 +796,7 @@ export function OnlineGame({ roomId, playerName, isHost }) {
  return (
  <div key={pi} className="flex gap-4 mb-4">
  <div
- className={`text-white p-4 rounded-xl shadow-lg flex gap-8 ${isTheirTurn ? "bg-blue-600" : "bg-zinc-500"}`}
+ className={`text-white p-4 rounded-xl shadow-lg flex gap-8 ${isTheirTurn ? "bg-blue-600" : "bg-zinc-50 dark:bg-zinc-8000"}`}
  >
  <div className="flex flex-col items-center">
  <span className="text-[10px] uppercase font-bold text-zinc-300">
@@ -841,8 +841,8 @@ export function OnlineGame({ roomId, playerName, isHost }) {
  </div>
  {player.lastAction && (
  <div className="flex items-center">
- <p className="text-sm text-zinc-500 ">
- <span className="font-bold text-zinc-700 ">
+ <p className="text-sm text-zinc-500 dark:text-zinc-400 ">
+ <span className="font-bold text-zinc-700 dark:text-zinc-200 ">
  {label} last action:
  </span>{" "}
  {player.lastAction}
@@ -856,11 +856,11 @@ export function OnlineGame({ roomId, playerName, isHost }) {
 
  {isInitialTicketSelection && (
  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
- <div className="bg-white rounded-3xl p-10 shadow-2xl flex flex-col items-center gap-4 w-full max-w-2xl mx-4">
- <div className="text-2xl font-black text-zinc-800 ">
+ <div className="bg-white dark:bg-zinc-800 rounded-3xl p-10 shadow-2xl flex flex-col items-center gap-4 w-full max-w-2xl mx-4">
+ <div className="text-2xl font-black text-zinc-800 dark:text-zinc-100 ">
  Choose your starting tickets
  </div>
- <div className="text-zinc-500 text-sm">
+ <div className="text-zinc-500 dark:text-zinc-400 text-sm">
  Keep at least 1 ticket
  </div>
  <TicketSelection
@@ -873,8 +873,8 @@ export function OnlineGame({ roomId, playerName, isHost }) {
 
  {isDrawingTickets && (
  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
- <div className="bg-white rounded-3xl p-10 shadow-2xl flex flex-col items-center gap-4 w-full max-w-2xl mx-4">
- <div className="text-2xl font-black text-zinc-800 ">
+ <div className="bg-white dark:bg-zinc-800 rounded-3xl p-10 shadow-2xl flex flex-col items-center gap-4 w-full max-w-2xl mx-4">
+ <div className="text-2xl font-black text-zinc-800 dark:text-zinc-100 ">
  Choose tickets to keep
  </div>
  <TicketSelection

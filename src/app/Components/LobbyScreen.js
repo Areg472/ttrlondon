@@ -18,9 +18,9 @@ export function LobbyScreen({ onJoin, onPlayLocal }) {
  };
 
  return (
- <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-100 font-sans p-8">
- <div className="bg-white p-12 rounded-[40px] shadow-2xl border border-zinc-200 flex flex-col items-center max-w-md w-full text-center gap-6">
- <h1 className="text-4xl font-black text-zinc-800 ">
+ <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-100 dark:bg-zinc-900 font-sans p-8">
+ <div className="bg-white dark:bg-zinc-800 p-12 rounded-[40px] shadow-2xl border border-zinc-200 dark:border-zinc-700 flex flex-col items-center max-w-md w-full text-center gap-6">
+ <h1 className="text-4xl font-black text-zinc-800 dark:text-zinc-100 ">
  Ticket to Ride
  </h1>
  <p className="text-zinc-400 uppercase tracking-[0.2em] font-bold text-sm">
@@ -28,7 +28,7 @@ export function LobbyScreen({ onJoin, onPlayLocal }) {
  </p>
 
  <input
- className="w-full border border-zinc-300 rounded-xl px-4 py-3 text-zinc-800 bg-zinc-50 font-semibold outline-none focus:ring-2 focus:ring-zinc-400"
+ className="w-full border border-zinc-300 dark:border-zinc-600 rounded-xl px-4 py-3 text-zinc-800 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-800 font-semibold outline-none focus:ring-2 focus:ring-zinc-400"
  placeholder="Your name"
  value={name}
  onChange={(e) => setName(e.target.value)}
@@ -52,7 +52,7 @@ export function LobbyScreen({ onJoin, onPlayLocal }) {
  </div>
  <button
  onClick={onPlayLocal}
- className="w-full py-4 rounded-2xl bg-zinc-200 text-zinc-800 font-black hover:scale-105 transition-transform shadow-lg cursor-pointer"
+ className="w-full py-4 rounded-2xl bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-100 font-black hover:scale-105 transition-transform shadow-lg cursor-pointer"
  >
  Play Locally
  </button>
@@ -61,7 +61,7 @@ export function LobbyScreen({ onJoin, onPlayLocal }) {
 
  {mode === "create" && (
  <div className="flex flex-col gap-3 w-full">
- <p className="text-zinc-500 text-sm">
+ <p className="text-zinc-500 dark:text-zinc-400 text-sm">
  A room code will be generated — share it with your friends.
  </p>
  <button
@@ -76,7 +76,7 @@ export function LobbyScreen({ onJoin, onPlayLocal }) {
  {mode === "join" && (
  <div className="flex flex-col gap-3 w-full">
  <input
- className="w-full border border-zinc-300 rounded-xl px-4 py-3 text-zinc-800 bg-zinc-50 font-semibold uppercase tracking-widest outline-none focus:ring-2 focus:ring-zinc-400"
+ className="w-full border border-zinc-300 dark:border-zinc-600 rounded-xl px-4 py-3 text-zinc-800 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-800 font-semibold uppercase tracking-widest outline-none focus:ring-2 focus:ring-zinc-400"
  placeholder="Room code"
  value={roomCode}
  onChange={(e) => setRoomCode(e.target.value)}
@@ -93,7 +93,7 @@ export function LobbyScreen({ onJoin, onPlayLocal }) {
  {mode && (
  <button
  onClick={() => setMode(null)}
- className="text-sm text-zinc-800 cursor-pointer rounded-2xl w-20 h-10 hover:bg-zinc-400 transition-colors bg-zinc-100 font-semibold"
+ className="text-sm text-zinc-800 dark:text-zinc-100 cursor-pointer rounded-2xl w-20 h-10 hover:bg-zinc-400 dark:hover:bg-zinc-600 transition-colors bg-zinc-100 dark:bg-zinc-900 font-semibold"
  >
  ← Back
  </button>

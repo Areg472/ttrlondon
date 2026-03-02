@@ -36,7 +36,7 @@ export function PlayerBoard({
  return (
  <main className="w-full flex justify-center gap-8 p-4">
  <div className="flex flex-col items-center">
- <div className="relative w-200 h-150 overflow-auto shadow-2xl rounded-3xl border border-zinc-200 bg-black">
+ <div className="relative w-200 h-150 overflow-auto shadow-2xl rounded-3xl border border-zinc-200 dark:border-zinc-700 bg-black">
  <div
  className="relative min-w-300 aspect-18/10 bg-black"
  style={{ paddingBottom: "64px" }}
@@ -85,16 +85,16 @@ export function PlayerBoard({
  </PlayerHandContext.Provider>
  </div>
  </div>
- <p className="mt-2 text-sm text-zinc-500 italic">
+ <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400 italic">
  Scroll to explore the map
  </p>
- <p className="mt-10 text-lg text-zinc-500 ">
+ <p className="mt-10 text-lg text-zinc-500 dark:text-zinc-400 ">
  {playerLabel} board ({17 - placedTiles} train pieces left)
  </p>
 
  {drawingTickets && (
- <div className="bg-white p-8 rounded-3xl shadow-2xl border border-zinc-200 flex flex-col items-center max-w-2xl w-full mt-10">
- <h2 className="text-2xl font-bold mb-6 text-zinc-800 ">
+ <div className="bg-white dark:bg-zinc-800 p-8 rounded-3xl shadow-2xl border border-zinc-200 dark:border-zinc-700 flex flex-col items-center max-w-2xl w-full mt-10">
+ <h2 className="text-2xl font-bold mb-6 text-zinc-800 dark:text-zinc-100 ">
  Select 1-2 Ticket Cards
  </h2>
  <div className="flex gap-6 mb-8 overflow-auto py-2">
@@ -108,7 +108,7 @@ export function PlayerBoard({
 
  <div className="flex flex-row mt-10" style={{ gap: "2.5rem" }}>
  <div className="gap-2 flex flex-col justify-center max-w-150">
- <p className="text-sm text-zinc-500 font-bold mb-2">
+ <p className="text-sm text-zinc-500 dark:text-zinc-400 font-bold mb-2">
  Train Cards
  </p>
  <div className="grid grid-cols-3 border-2 border-dashed p-4 gap-x-8 gap-y-16 min-w-125 min-h-50">
@@ -136,7 +136,7 @@ export function PlayerBoard({
  </div>
 
  <div className="gap-2 flex flex-col justify-center">
- <p className="text-sm text-zinc-500 ">
+ <p className="text-sm text-zinc-500 dark:text-zinc-400 ">
  Ticket Cards
  </p>
  <div className="flex flex-col justify-center border-2 border-dashed">
@@ -179,7 +179,7 @@ export function PlayerBoard({
  />
  </div>
  ))}
- <div className="absolute -bottom-8 left-0 right-0 text-center text-xs font-bold uppercase tracking-wider text-zinc-500">
+ <div className="absolute -bottom-8 left-0 right-0 text-center text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
  Ticket Deck ({ticketDeck.length})
  </div>
  </div>
@@ -201,13 +201,13 @@ export function PlayerBoard({
  />
  </div>
  ))}
- <div className="absolute -bottom-8 left-0 right-0 text-center text-xs font-bold uppercase tracking-wider text-zinc-500">
+ <div className="absolute -bottom-8 left-0 right-0 text-center text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
  Train Deck ({trainDeck.length})
  </div>
  </div>
 
  <div className="relative w-44 mt-10">
- <div className="mb-4 text-center text-xs font-bold uppercase tracking-wider text-zinc-500">
+ <div className="mb-4 text-center text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
  Cards on Display
  </div>
  <div className="flex flex-col gap-4">
@@ -232,7 +232,7 @@ export function PlayerBoard({
  </div>
 
  <div className="relative w-44 mt-10">
- <div className="mb-4 text-center text-xs font-bold uppercase tracking-wider text-zinc-500">
+ <div className="mb-4 text-center text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
  Discard Pile ({discardPile.length})
  </div>
  <div className="flex flex-col gap-4">

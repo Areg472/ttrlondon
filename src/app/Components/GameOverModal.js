@@ -25,11 +25,11 @@ export function GameOverModal({
 
  return (
  <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-md">
- <div className="bg-white p-12 rounded-[40px] shadow-2xl border border-zinc-200 flex flex-col items-center max-w-lg w-full text-center">
- <h2 className="text-5xl font-black mb-2 text-zinc-800 ">
+ <div className="bg-white dark:bg-zinc-800 p-12 rounded-[40px] shadow-2xl border border-zinc-200 dark:border-zinc-700 flex flex-col items-center max-w-lg w-full text-center">
+ <h2 className="text-5xl font-black mb-2 text-zinc-800 dark:text-zinc-100 ">
  Game Over
  </h2>
- <p className="text-zinc-500 mb-8 uppercase tracking-[0.2em] font-bold">
+ <p className="text-zinc-500 dark:text-zinc-400 mb-8 uppercase tracking-[0.2em] font-bold">
  Final Results
  </p>
 
@@ -39,14 +39,14 @@ export function GameOverModal({
  {i > 0 && (
  <div
  key={`sep-${i}`}
- className="w-px h-16 bg-zinc-200 self-center"
+ className="w-px h-16 bg-zinc-200 dark:bg-zinc-700 self-center"
  />
  )}
  <div key={`score-${i}`} className="flex flex-col">
  <span className="text-sm text-zinc-400 uppercase font-bold mb-1">
  {entry.label}
  </span>
- <span className="text-6xl font-black text-zinc-800 ">
+ <span className="text-6xl font-black text-zinc-800 dark:text-zinc-100 ">
  {entry.score}
  </span>
  </div>
@@ -56,7 +56,7 @@ export function GameOverModal({
 
  {(playerNumberBonuses.length > 0 ||
  aiNumberBonuses.some((a) => a.length > 0)) && (
- <div className="mb-6 text-sm text-zinc-600 text-left w-full">
+ <div className="mb-6 text-sm text-zinc-600 dark:text-zinc-300 text-left w-full">
  <div className="font-semibold mb-2">City-number bonuses</div>
  <div className="mb-1">
  Player:{" "}
@@ -64,7 +64,7 @@ export function GameOverModal({
  ? [...playerNumberBonuses].sort((a, b) => a - b).join(", ")
  : "—"}
  {playerNumberBonuses.length > 0 && (
- <span className="ml-2 text-zinc-500">
+ <span className="ml-2 text-zinc-500 dark:text-zinc-400">
  (+{playerNumberBonuses.reduce((a, b) => a + b, 0)})
  </span>
  )}
@@ -76,7 +76,7 @@ export function GameOverModal({
  ? [...nums].sort((a, b) => a - b).join(", ")
  : "—"}
  {nums.length > 0 && (
- <span className="ml-2 text-zinc-500">
+ <span className="ml-2 text-zinc-500 dark:text-zinc-400">
  (+{nums.reduce((a, b) => a + b, 0)})
  </span>
  )}
@@ -87,7 +87,7 @@ export function GameOverModal({
 
  {(playerTicketResults.length > 0 ||
  aiTicketResults.some((r) => r.length > 0)) && (
- <div className="mb-6 text-sm text-zinc-600 text-left w-full">
+ <div className="mb-6 text-sm text-zinc-600 dark:text-zinc-300 text-left w-full">
  <div className="font-semibold mb-2">Tickets</div>
  <div className="mb-1">
  <span className="font-medium">Player:</span>

@@ -14,15 +14,15 @@ export function StartScreen({ onStart }) {
 
  if (numAIs === null) {
  return (
- <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-100 font-sans p-8">
- <div className="bg-white p-12 rounded-[40px] shadow-2xl border border-zinc-200 flex flex-col items-center max-w-md w-full text-center">
- <h1 className="text-4xl font-black mb-2 text-zinc-800 ">
+ <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-100 dark:bg-zinc-900 font-sans p-8">
+ <div className="bg-white dark:bg-zinc-800 p-12 rounded-[40px] shadow-2xl border border-zinc-200 dark:border-zinc-700 flex flex-col items-center max-w-md w-full text-center">
+ <h1 className="text-4xl font-black mb-2 text-zinc-800 dark:text-zinc-100 ">
  Ticket to Ride
  </h1>
  <p className="text-zinc-400 mb-10 uppercase tracking-[0.2em] font-bold text-sm">
  London 🇬🇧
  </p>
- <p className="text-zinc-600 font-semibold mb-6 text-lg">
+ <p className="text-zinc-600 dark:text-zinc-300 font-semibold mb-6 text-lg">
  How many AI opponents?
  </p>
  <div className="flex gap-4">
@@ -44,15 +44,15 @@ export function StartScreen({ onStart }) {
  if (numAIs === 0) {
  const maxExtra0 = 3;
  return (
- <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-100 font-sans p-8">
- <div className="bg-white p-12 rounded-[40px] shadow-2xl border border-zinc-200 flex flex-col items-center max-w-md w-full text-center">
- <h1 className="text-4xl font-black mb-2 text-zinc-800 ">
+ <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-100 dark:bg-zinc-900 font-sans p-8">
+ <div className="bg-white dark:bg-zinc-800 p-12 rounded-[40px] shadow-2xl border border-zinc-200 dark:border-zinc-700 flex flex-col items-center max-w-md w-full text-center">
+ <h1 className="text-4xl font-black mb-2 text-zinc-800 dark:text-zinc-100 ">
  Ticket to Ride
  </h1>
  <p className="text-zinc-400 mb-10 uppercase tracking-[0.2em] font-bold text-sm">
  London 🇬🇧
  </p>
- <p className="text-zinc-600 font-semibold mb-6 text-lg">
+ <p className="text-zinc-600 dark:text-zinc-300 font-semibold mb-6 text-lg">
  How many manual players? (min 2)
  </p>
  <div className="flex gap-4">
@@ -68,7 +68,7 @@ export function StartScreen({ onStart }) {
  </div>
  <button
  onClick={() => setNumAIs(null)}
- className="mt-8 text-sm text-zinc-800 cursor-pointer rounded-2xl w-20 h-10 hover:bg-zinc-400 transition-colors bg-zinc-100 font-semibold"
+ className="mt-8 text-sm text-zinc-800 dark:text-zinc-100 cursor-pointer rounded-2xl w-20 h-10 hover:bg-zinc-400 dark:hover:bg-zinc-600 transition-colors bg-zinc-100 dark:bg-zinc-900 font-semibold"
  >
  ← Back
  </button>
@@ -79,15 +79,15 @@ export function StartScreen({ onStart }) {
 
  if (difficulty === null) {
  return (
- <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-100 font-sans p-8">
- <div className="bg-white p-12 rounded-[40px] shadow-2xl border border-zinc-200 flex flex-col items-center max-w-md w-full text-center">
- <h1 className="text-4xl font-black mb-2 text-zinc-800 ">
+ <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-100 dark:bg-zinc-900 font-sans p-8">
+ <div className="bg-white dark:bg-zinc-800 p-12 rounded-[40px] shadow-2xl border border-zinc-200 dark:border-zinc-700 flex flex-col items-center max-w-md w-full text-center">
+ <h1 className="text-4xl font-black mb-2 text-zinc-800 dark:text-zinc-100 ">
  Ticket to Ride
  </h1>
  <p className="text-zinc-400 mb-10 uppercase tracking-[0.2em] font-bold text-sm">
  London 🇬🇧
  </p>
- <p className="text-zinc-600 font-semibold mb-6 text-lg">
+ <p className="text-zinc-600 dark:text-zinc-300 font-semibold mb-6 text-lg">
  AI Difficulty
  </p>
  <div className="flex flex-col gap-3 w-full">
@@ -107,7 +107,7 @@ export function StartScreen({ onStart }) {
  </div>
  <button
  onClick={() => setNumAIs(null)}
- className="mt-8 text-sm text-zinc-800 cursor-pointer rounded-2xl w-20 h-10 hover:bg-zinc-400 transition-colors bg-zinc-100 font-semibold"
+ className="mt-8 text-sm text-zinc-800 dark:text-zinc-100 cursor-pointer rounded-2xl w-20 h-10 hover:bg-zinc-400 dark:hover:bg-zinc-600 transition-colors bg-zinc-100 dark:bg-zinc-900 font-semibold"
  >
  ← Back
  </button>
@@ -124,15 +124,15 @@ export function StartScreen({ onStart }) {
  }
 
  return (
- <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-100 font-sans p-8">
- <div className="bg-white p-12 rounded-[40px] shadow-2xl border border-zinc-200 flex flex-col items-center max-w-md w-full text-center">
- <h1 className="text-4xl font-black mb-2 text-zinc-800 ">
+ <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-100 dark:bg-zinc-900 font-sans p-8">
+ <div className="bg-white dark:bg-zinc-800 p-12 rounded-[40px] shadow-2xl border border-zinc-200 dark:border-zinc-700 flex flex-col items-center max-w-md w-full text-center">
+ <h1 className="text-4xl font-black mb-2 text-zinc-800 dark:text-zinc-100 ">
  Ticket to Ride
  </h1>
  <p className="text-zinc-400 mb-10 uppercase tracking-[0.2em] font-bold text-sm">
  London 🇬🇧
  </p>
- <p className="text-zinc-600 font-semibold mb-6 text-lg">
+ <p className="text-zinc-600 dark:text-zinc-300 font-semibold mb-6 text-lg">
  How many extra manual players?
  </p>
  <div className="flex gap-4">
@@ -148,7 +148,7 @@ export function StartScreen({ onStart }) {
  </div>
  <button
  onClick={() => setDifficulty(null)}
- className="mt-8 text-sm text-zinc-800 cursor-pointer rounded-2xl w-20 h-10 hover:bg-zinc-400 transition-colors bg-zinc-100 font-semibold"
+ className="mt-8 text-sm text-zinc-800 dark:text-zinc-100 cursor-pointer rounded-2xl w-20 h-10 hover:bg-zinc-400 dark:hover:bg-zinc-600 transition-colors bg-zinc-100 dark:bg-zinc-900 font-semibold"
  >
  ← Back
  </button>

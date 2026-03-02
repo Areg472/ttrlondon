@@ -51,8 +51,8 @@ export function AiPanel({
  </div>
  </div>
  <div className="flex gap-4 justify-center mb-4">
- <p className="text-sm text-zinc-500 ">
- <span className="font-bold text-zinc-700 ">
+ <p className="text-sm text-zinc-500 dark:text-zinc-400 ">
+ <span className="font-bold text-zinc-700 dark:text-zinc-200 ">
  AI {index + 1} last action:
  </span>{" "}
  {lastAction ?? "None yet"}
