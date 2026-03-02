@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { RoomProvider, useOthers } from "../liveblocks.config";
+import { RoomProvider } from "../liveblocks.config";
 import { LobbyScreen } from "./Components/LobbyScreen";
 import { shuffle } from "./utils/shuffle";
 import {
@@ -17,6 +17,7 @@ import { GameHeader } from "./Components/GameHeader";
 import { AiPanel } from "./Components/AiPanel";
 import { PlayerBoard } from "./Components/PlayerBoard";
 import { TicketSelection } from "./Components/TicketSelection";
+import { OnlineGame } from "./Components/OnlineGame";
 
 const checkThreeRainbows = (currentDisplay, currentDeck, currentDiscard) => {
   let display = [...currentDisplay],
@@ -34,39 +35,6 @@ const checkThreeRainbows = (currentDisplay, currentDeck, currentDiscard) => {
   }
   return { display, deck, discard };
 };
-
-function WaitingForPlayers({ children, roomId }) {
-  const others = useOthers();
-  if (others.length === 0) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-100 font-sans dark:bg-zinc-900 p-8">
-        <div className="bg-white dark:bg-zinc-900 p-12 rounded-[40px] shadow-2xl border border-zinc-200 dark:border-zinc-800 flex flex-col items-center max-w-md w-full text-center gap-6">
-          <h1 className="text-4xl font-black text-zinc-800 dark:text-zinc-100">
-            Waiting for players…
-          </h1>
-          <p className="text-zinc-400 text-sm font-semibold">
-            Share this room code with a friend to start playing.
-          </p>
-          {roomId && (
-            <div className="bg-zinc-100 dark:bg-zinc-800 rounded-2xl px-8 py-4">
-              <span className="text-3xl font-black tracking-widest text-zinc-800 dark:text-zinc-100">
-                {roomId}
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-  return children;
-}
-
-function OnlineGameStarter({ onStart }) {
-  useEffect(() => {
-    onStart(0, 0, "medium");
-  }, []);
-  return null;
-}
 
 export default function Home() {
   const [roomId, setRoomId] = useState(null);
@@ -1585,35 +1553,25 @@ Respond with ONE JSON object only.`,
     );
   }
 
-  if (!rulesShown) {
-    if (localMode) return <RulesPanel onFinish={() => setRulesShown(true)} />;
+  // Online mode: bypass rules/start screens entirely
+  if (!localMode) {
     return (
       <RoomProvider
         id={roomId}
-        initialPresence={{ name: playerName }}
-        initialStorage={{}}
+        initialPresence={{ name: playerName, isHost: isHost }}
+        initialStorage={{ gameState: null }}
       >
-        <WaitingForPlayers roomId={roomId}>
-          <RulesPanel onFinish={() => setRulesShown(true)} />
-        </WaitingForPlayers>
+        <OnlineGame roomId={roomId} playerName={playerName} isHost={isHost} />
       </RoomProvider>
     );
   }
 
+  if (!rulesShown) {
+    return <RulesPanel onFinish={() => setRulesShown(true)} />;
+  }
+
   if (!gameStarted) {
-    if (localMode) return <StartScreen onStart={startGame} />;
-    // Online mode: skip AI/manual player selection, start immediately (no AI, no extra manual)
-    return (
-      <RoomProvider
-        id={roomId}
-        initialPresence={{ name: playerName }}
-        initialStorage={{}}
-      >
-        <WaitingForPlayers roomId={roomId}>
-          <OnlineGameStarter onStart={startGame} />
-        </WaitingForPlayers>
-      </RoomProvider>
-    );
+    return <StartScreen onStart={startGame} />;
   }
 
   const gameContent = (
@@ -1858,15 +1816,5 @@ Respond with ONE JSON object only.`,
     </div>
   );
 
-  if (localMode) return gameContent;
-
-  return (
-    <RoomProvider
-      id={roomId}
-      initialPresence={{ name: playerName }}
-      initialStorage={{}}
-    >
-      <WaitingForPlayers roomId={roomId}>{gameContent}</WaitingForPlayers>
-    </RoomProvider>
-  );
+  return gameContent;
 }
