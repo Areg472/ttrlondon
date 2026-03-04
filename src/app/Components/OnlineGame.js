@@ -474,6 +474,28 @@ export function OnlineGame({ roomId, playerName, isHost }) {
     gameState &&
     gameState.currentPlayerIndex === myPlayerIndex &&
     !gameState.gameOver;
+
+  const prevIsMyTurnRef = useRef(false);
+  useEffect(() => {
+    if (isMyTurn && !prevIsMyTurnRef.current) {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.3);
+        gain.gain.setValueAtTime(0.4, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.5);
+        osc.onended = () => ctx.close();
+      } catch (_) {}
+    }
+    prevIsMyTurnRef.current = !!isMyTurn;
+  }, [isMyTurn]);
   const myClaimerKey =
     myPlayerIndex === 0 ? "player" : `player${myPlayerIndex + 1}`;
 
@@ -775,8 +797,14 @@ export function OnlineGame({ roomId, playerName, isHost }) {
             .map((p) => p.score)}
           playerNumberBonuses={myPlayer?.numberBonuses ?? []}
           aiNumberBonuses={[]}
+          extraManualNumberBonuses={gameState.players
+            .filter((_, i) => i !== myPlayerIndex)
+            .map((p) => p.numberBonuses ?? [])}
           playerTicketResults={myPlayer?.ticketResults ?? []}
           aiTicketResults={[]}
+          extraManualTicketResults={gameState.players
+            .filter((_, i) => i !== myPlayerIndex)
+            .map((p) => p.ticketResults ?? [])}
           extraManualTickets={gameState.players
             .filter((_, i) => i !== myPlayerIndex)
             .map((p) => p.tickets)}
@@ -822,16 +850,20 @@ export function OnlineGame({ roomId, playerName, isHost }) {
           return (
             <div key={pi} className="flex gap-4 mb-4">
               <div
-                className={`text-white p-4 rounded-xl shadow-lg flex gap-8 ${isTheirTurn ? "bg-blue-600" : "bg-zinc-50 dark:bg-zinc-8000"}`}
+                className={`p-4 rounded-xl shadow-lg flex gap-8 ${isTheirTurn ? "bg-blue-600 text-white" : "bg-zinc-200 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-100"}`}
               >
                 <div className="flex flex-col items-center">
-                  <span className="text-[10px] uppercase font-bold text-zinc-300">
+                  <span
+                    className={`text-[10px] uppercase font-bold ${isTheirTurn ? "text-blue-200" : "text-zinc-500 dark:text-zinc-400"}`}
+                  >
                     {label} Points
                   </span>
                   <span className="text-2xl font-black">{player.score}</span>
                 </div>
                 <div className="flex flex-col items-center">
-                  <span className="text-[10px] uppercase font-bold text-zinc-300">
+                  <span
+                    className={`text-[10px] uppercase font-bold ${isTheirTurn ? "text-blue-200" : "text-zinc-500 dark:text-zinc-400"}`}
+                  >
                     {label} Trains
                   </span>
                   <span className="text-2xl font-black">
@@ -839,7 +871,9 @@ export function OnlineGame({ roomId, playerName, isHost }) {
                   </span>
                 </div>
                 <div className="flex flex-col items-center">
-                  <span className="text-[10px] uppercase font-bold text-zinc-300">
+                  <span
+                    className={`text-[10px] uppercase font-bold ${isTheirTurn ? "text-blue-200" : "text-zinc-500 dark:text-zinc-400"}`}
+                  >
                     {label} Cards
                   </span>
                   <span className="text-2xl font-black">
@@ -850,20 +884,22 @@ export function OnlineGame({ roomId, playerName, isHost }) {
                   </span>
                 </div>
                 <div className="flex flex-col items-center">
-                  <span className="text-[10px] uppercase font-bold text-zinc-300">
+                  <span
+                    className={`text-[10px] uppercase font-bold ${isTheirTurn ? "text-blue-200" : "text-zinc-500 dark:text-zinc-400"}`}
+                  >
                     {label} Tickets
                   </span>
                   <span className="text-2xl font-black">
                     {(player.tickets || []).length}
                   </span>
                 </div>
-                {isTheirTurn && (
-                  <div className="flex flex-col items-center justify-center">
-                    <span className="text-xs font-bold text-blue-200 animate-pulse">
-                      THEIR TURN
-                    </span>
-                  </div>
-                )}
+                <div className="flex flex-col items-center justify-center">
+                  <span
+                    className={`text-xs font-bold text-blue-200 animate-pulse ${isTheirTurn ? "opacity-100" : "opacity-0"}`}
+                  >
+                    THEIR TURN
+                  </span>
+                </div>
               </div>
               {player.lastAction && (
                 <div className="flex items-center">
