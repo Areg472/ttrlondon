@@ -1,18 +1,20 @@
 ﻿"use client";
 
 import { createClient } from "@liveblocks/client";
-import { createRoomContext } from "@liveblocks/react";
+import { createRoomContext, shallow } from "@liveblocks/react";
 
 const client = createClient({
- authEndpoint: async (room) => {
- const response = await fetch("/api/liveblocks-auth", {
- method: "POST",
- headers: { "Content-Type": "application/json" },
- body: JSON.stringify({ room }),
- });
- return response.json();
- },
+  authEndpoint: async (room) => {
+    const response = await fetch("/api/liveblocks-auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ room }),
+    });
+    return response.json();
+  },
 });
 
 export const { RoomProvider, useStorage, useMutation, useOthers, useSelf } =
- createRoomContext(client);
+  createRoomContext(client);
+
+export { shallow };

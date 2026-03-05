@@ -1,68 +1,31 @@
 ﻿"use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import {
   useStorage,
   useMutation,
   useOthers,
   useSelf,
-} from "../../liveblocks.config";
+  shallow,
+} from "@/liveblocks.config";
 import { shuffle } from "../utils/shuffle";
 import { TICKETS, INITIAL_TRAIN_CARDS_DECK, ROUTES } from "../data/gameData";
 import {
   EMPTY_HAND,
   checkThreeRainbows,
-  getRouteConnects,
+  refillDisplay,
   isConnectedViaEdges,
   getClaimedEdges,
   groupCitiesByNumber,
+  isTicketBlocked,
+  isSetFullyConnected,
 } from "../utils/gameUtils";
 import { GameHeader } from "./GameHeader";
 import { PlayerBoard } from "./PlayerBoard";
 import { GameOverModal } from "./GameOverModal";
 import { TicketSelection } from "./TicketSelection";
 import { OpponentPanel } from "./OpponentPanel";
-
-const isTicketBlocked = (ticket, playerKey, claimedRoutes) => {
-  const adj = new Map();
-  for (const route of ROUTES) {
-    const connects = getRouteConnects(route);
-    if (!connects || !connects[0] || !connects[1]) continue;
-    const [a, b] = connects;
-    const sides = route.isDouble ? ["even", "odd"] : ["single"];
-    for (const side of sides) {
-      const claimer = (claimedRoutes || {})[`${route.id}_${side}`];
-      if (!claimer || claimer === playerKey) {
-        if (!adj.has(a)) adj.set(a, new Set());
-        if (!adj.has(b)) adj.set(b, new Set());
-        adj.get(a).add(b);
-        adj.get(b).add(a);
-      }
-    }
-  }
-  const visited = new Set([ticket.cityA]);
-  const q = [ticket.cityA];
-  while (q.length) {
-    const u = q.shift();
-    if (u === ticket.cityB) return false;
-    for (const v of adj.get(u) || []) {
-      if (!visited.has(v)) {
-        visited.add(v);
-        q.push(v);
-      }
-    }
-  }
-  return true;
-};
-
-const isSetFullyConnected = (edges, names) => {
-  if (!names || names.length <= 1) return false;
-  const start = names[0];
-  for (let i = 1; i < names.length; i++) {
-    if (!isConnectedViaEdges(edges, start, names[i])) return false;
-  }
-  return true;
-};
+import { MoveLog } from "./MoveLog";
 
 const buildInitialState = (numPlayers) => {
   const rawDeck = [...INITIAL_TRAIN_CARDS_DECK];
@@ -113,11 +76,12 @@ const buildInitialState = (numPlayers) => {
     lastRoundTriggered: false,
     finalTurnsLeft: -1,
     gameStarted: true,
+    moveLog: [],
   };
 };
 
 function WaitingForPlayers({ children, roomId }) {
-  const others = useOthers();
+  const others = useOthers((others) => others, shallow);
   if (others.length === 0) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-100 dark:bg-zinc-900 font-sans p-8">
@@ -143,7 +107,7 @@ function WaitingForPlayers({ children, roomId }) {
 }
 
 function RoomLobby({ roomId, playerName, isHost, onStart }) {
-  const others = useOthers();
+  const others = useOthers((others) => others, shallow);
   const self = useSelf();
   const totalPlayers = 1 + others.length;
 
@@ -217,9 +181,11 @@ function RoomLobby({ roomId, playerName, isHost, onStart }) {
 }
 
 export function OnlineGame({ roomId, playerName, isHost }) {
-  const gameState = useStorage((root) => root.gameState);
-  const playerSlots = useStorage((root) => root.playerSlots);
-  const others = useOthers();
+  /** @type {{gameStarted: boolean, gameOver: boolean, players: Array, displayCards: Array, trainDeck: Array, ticketDeck: Array, discardPile: Array, claimedRoutes: Object, currentPlayerIndex: number, cardsDrawn: number, turn: number, lastRoundTriggered: boolean, finalTurnsLeft: number, moveLog: Array}|null} */
+  const gameState = useStorage((root) => root.gameState, shallow);
+  const playerSlots = useStorage((root) => root.playerSlots, shallow);
+  /** @type {Array<{presence: {name: string}}>} */
+  const others = useOthers((others) => others, shallow);
   const self = useSelf();
 
   const myPlayerIndex = playerSlots
@@ -359,7 +325,10 @@ export function OnlineGame({ roomId, playerName, isHost }) {
   useEffect(() => {
     if (isMyTurn && !prevIsMyTurnRef.current) {
       try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const AudioCtx =
+          window.AudioContext ||
+          /** @type {typeof AudioContext} */ (window["webkitAudioContext"]);
+        const ctx = new AudioCtx();
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.connect(gain);
@@ -401,7 +370,7 @@ export function OnlineGame({ roomId, playerName, isHost }) {
   }, [updateGameState]);
 
   const selectTickets = useCallback(
-    (selectedIndices) => {
+    (selectedIndices, isMidGame = false) => {
       if (selectedIndices.length < 1) return;
       updateGameState((state) => {
         const pi = myPlayerIndex;
@@ -414,11 +383,21 @@ export function OnlineGame({ roomId, playerName, isHost }) {
           drawingTickets: null,
           lastAction: `Drew tickets, kept ${selected.length}`,
         };
+        if (isMidGame) {
+          state.moveLog = [
+            ...(state.moveLog || []),
+            {
+              player: playerName,
+              text: `kept ${selected.length} ticket${selected.length !== 1 ? "s" : ""}`,
+            },
+          ];
+          state.cardsDrawn = 0;
+        }
         return state;
       });
       setTimeout(() => incrementTurn(), 0);
     },
-    [updateGameState, myPlayerIndex, incrementTurn],
+    [updateGameState, myPlayerIndex, incrementTurn, playerName],
   );
 
   const drawFromDisplay = useCallback(
@@ -438,21 +417,12 @@ export function OnlineGame({ roomId, playerName, isHost }) {
           [colorKey]: (player.hand[colorKey] ?? 0) + 1,
         };
 
-        let nextDisplay = [...state.displayCards];
-        let nextDeck = [...state.trainDeck];
-        let nextDiscard = [...state.discardPile];
-
-        if (nextDeck.length === 0 && nextDiscard.length > 0) {
-          nextDeck = shuffle(nextDiscard);
-          nextDiscard = [];
-        }
-        if (nextDeck.length > 0) {
-          nextDisplay[index] = nextDeck[0];
-          nextDeck = nextDeck.slice(1);
-        } else {
-          nextDisplay.splice(index, 1);
-        }
-        const result = checkThreeRainbows(nextDisplay, nextDeck, nextDiscard);
+        const result = refillDisplay(
+          state.displayCards,
+          state.trainDeck,
+          state.discardPile,
+          index,
+        );
 
         const draws = card.rainbow ? 2 : 1;
         const total = state.cardsDrawn + draws;
@@ -462,6 +432,10 @@ export function OnlineGame({ roomId, playerName, isHost }) {
           hand: newHand,
           lastAction: "Drew from the display",
         };
+        state.moveLog = [
+          ...(state.moveLog || []),
+          { player: playerName, text: `drew a card from the display` },
+        ];
         state.displayCards = result.display;
         state.trainDeck = result.deck;
         state.discardPile = result.discard;
@@ -476,7 +450,14 @@ export function OnlineGame({ roomId, playerName, isHost }) {
         setTimeout(() => incrementTurn(), 0);
       }
     },
-    [isMyTurn, gameState, updateGameState, myPlayerIndex, incrementTurn],
+    [
+      isMyTurn,
+      gameState,
+      updateGameState,
+      myPlayerIndex,
+      incrementTurn,
+      playerName,
+    ],
   );
 
   const drawFromDeck = useCallback(() => {
@@ -487,12 +468,8 @@ export function OnlineGame({ roomId, playerName, isHost }) {
       currentDiscard = [...discard];
     if (currentDeck.length === 0 && currentDiscard.length > 0) {
       currentDeck = shuffle(currentDiscard);
-      currentDiscard = [];
     }
     if (currentDeck.length === 0) return;
-    const card = currentDeck[0];
-    const colorKey = card.rainbow ? "rainbow" : card.color;
-
     updateGameState((state) => {
       const pi = myPlayerIndex;
       let d = [...state.trainDeck],
@@ -510,6 +487,10 @@ export function OnlineGame({ roomId, playerName, isHost }) {
         hand: { ...player.hand, [ck]: (player.hand[ck] ?? 0) + 1 },
         lastAction: "Drew from the deck",
       };
+      state.moveLog = [
+        ...(state.moveLog || []),
+        { player: playerName, text: "drew a card from the deck" },
+      ];
       state.trainDeck = d.slice(1);
       state.discardPile = dis;
       const total = state.cardsDrawn + 1;
@@ -521,53 +502,48 @@ export function OnlineGame({ roomId, playerName, isHost }) {
     if (total >= 2) {
       setTimeout(() => incrementTurn(), 0);
     }
-  }, [isMyTurn, gameState, updateGameState, myPlayerIndex, incrementTurn]);
+  }, [
+    isMyTurn,
+    gameState,
+    updateGameState,
+    myPlayerIndex,
+    incrementTurn,
+    playerName,
+  ]);
 
   const drawTickets = useCallback(() => {
     if (!isMyTurn || (gameState?.cardsDrawn ?? 0) > 0) return;
     if (!gameState.ticketDeck || gameState.ticketDeck.length === 0) return;
     updateGameState((state) => {
       const pi = myPlayerIndex;
-      const drawn = state.ticketDeck.slice(0, 2);
-      state.ticketDeck = state.ticketDeck.slice(2);
+      const deck = /** @type {Array} */ (state.ticketDeck);
+      const drawn = deck.slice(0, 2);
+      state.ticketDeck = deck.slice(2);
       state.players[pi] = { ...state.players[pi], drawingTickets: drawn };
       return state;
     });
   }, [isMyTurn, gameState, updateGameState, myPlayerIndex]);
 
-  const selectDrawnTickets = useCallback(
-    (selectedIndices) => {
-      if (selectedIndices.length < 1) return;
-      updateGameState((state) => {
-        const pi = myPlayerIndex;
-        const player = state.players[pi];
-        const drawn = player.drawingTickets || [];
-        const selected = selectedIndices.map((i) => drawn[i]);
-        state.players[pi] = {
-          ...player,
-          tickets: [...player.tickets, ...selected],
-          drawingTickets: null,
-          lastAction: `Drew tickets, kept ${selected.length}`,
-        };
-        state.cardsDrawn = 0;
-        return state;
-      });
-      setTimeout(() => incrementTurn(), 0);
-    },
-    [updateGameState, myPlayerIndex, incrementTurn],
-  );
-
   const claimRoute = useCallback(
-    (routeId, side, type) => {
+    (routeId, side) => {
       updateGameState((state) => {
         state.claimedRoutes = {
           ...state.claimedRoutes,
           [`${routeId}_${side}`]: myClaimerKey,
         };
+        const route = ROUTES.find((r) => r.id === routeId);
+        const len = route ? route.trainCount : 0;
+        state.moveLog = [
+          ...(state.moveLog || []),
+          {
+            player: playerName,
+            text: `claimed a route (${len} train${len !== 1 ? "s" : ""})`,
+          },
+        ];
         return state;
       });
     },
-    [updateGameState, myClaimerKey],
+    [updateGameState, myClaimerKey, playerName],
   );
 
   const spendCards = useCallback(
@@ -647,7 +623,6 @@ export function OnlineGame({ roomId, playerName, isHost }) {
   }
 
   const myPlayer = gameState.players[myPlayerIndex];
-  const currentPlayer = gameState.players[gameState.currentPlayerIndex];
   const isInitialTicketSelection =
     myPlayer && myPlayer.drawingTickets && myPlayer.tickets.length === 0;
   const isDrawingTickets =
@@ -768,7 +743,7 @@ export function OnlineGame({ roomId, playerName, isHost }) {
             </div>
             <TicketSelection
               tickets={myPlayer.drawingTickets}
-              onSelectionComplete={selectDrawnTickets}
+              onSelectionComplete={(i) => selectTickets(i, true)}
             />
           </div>
         </div>
@@ -792,7 +767,7 @@ export function OnlineGame({ roomId, playerName, isHost }) {
         playerLabel={
           myPlayerIndex === 0 ? "Player 1" : `Player ${myPlayerIndex + 1}`
         }
-        selectTickets={selectDrawnTickets}
+        selectTickets={(i) => selectTickets(i, true)}
         spendCards={spendCards}
         addPoints={addPoints}
         canPlaceMore={canPlaceMore}
@@ -812,6 +787,8 @@ export function OnlineGame({ roomId, playerName, isHost }) {
         displayCards={gameState.displayCards ?? []}
         onDrawFromDisplay={drawFromDisplay}
       />
+
+      <MoveLog entries={gameState.moveLog ?? []} />
     </div>
   );
 }

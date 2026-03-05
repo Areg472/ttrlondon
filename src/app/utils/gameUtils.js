@@ -20,6 +20,23 @@ export const EMPTY_HAND = {
 
 // ─── Train card display helpers ───────────────────────────────────────────────
 
+export const refillDisplay = (display, deck, discard, index) => {
+  let nextDisplay = [...display],
+    nextDeck = [...deck],
+    nextDiscard = [...discard];
+  if (nextDeck.length === 0 && nextDiscard.length > 0) {
+    nextDeck = shuffle(nextDiscard);
+    nextDiscard = [];
+  }
+  if (nextDeck.length > 0) {
+    nextDisplay[index] = nextDeck[0];
+    nextDeck = nextDeck.slice(1);
+  } else {
+    nextDisplay.splice(index, 1);
+  }
+  return checkThreeRainbows(nextDisplay, nextDeck, nextDiscard);
+};
+
 export const checkThreeRainbows = (
   currentDisplay,
   currentDeck,
@@ -133,6 +150,49 @@ export const getClaimedEdges = (claimedRoutes, claimer) => {
     if (connects?.[0] && connects?.[1]) edges.push([connects[0], connects[1]]);
   }
   return edges;
+};
+
+// ─── Ticket / connectivity helpers ───────────────────────────────────────────
+
+export const isTicketBlocked = (ticket, playerKey, claimedRoutes) => {
+  const adj = new Map();
+  for (const route of ROUTES) {
+    const connects = getRouteConnects(route);
+    if (!connects || !connects[0] || !connects[1]) continue;
+    const [a, b] = connects;
+    const sides = route.isDouble ? ["even", "odd"] : ["single"];
+    for (const side of sides) {
+      const claimer = (claimedRoutes || {})[`${route.id}_${side}`];
+      if (!claimer || claimer === playerKey) {
+        if (!adj.has(a)) adj.set(a, new Set());
+        if (!adj.has(b)) adj.set(b, new Set());
+        adj.get(a).add(b);
+        adj.get(b).add(a);
+      }
+    }
+  }
+  const visited = new Set([ticket.cityA]);
+  const q = [ticket.cityA];
+  while (q.length) {
+    const u = q.shift();
+    if (u === ticket.cityB) return false;
+    for (const v of adj.get(u) || []) {
+      if (!visited.has(v)) {
+        visited.add(v);
+        q.push(v);
+      }
+    }
+  }
+  return true;
+};
+
+export const isSetFullyConnected = (edges, names) => {
+  if (!names || names.length <= 1) return false;
+  const start = names[0];
+  for (let i = 1; i < names.length; i++) {
+    if (!isConnectedViaEdges(edges, start, names[i])) return false;
+  }
+  return true;
 };
 
 // ─── City number groups ──────────────────────────────────────────────────────

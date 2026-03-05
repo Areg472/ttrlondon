@@ -8,12 +8,15 @@ import { ROUTES } from "./data/gameData";
 import {
   EMPTY_HAND,
   checkThreeRainbows,
+  refillDisplay,
   getRouteConnects,
   isConnectedViaEdges,
   getClaimedEdges,
   groupCitiesByNumber,
   getInitialGameState,
   fetchAiTicketChoice,
+  isTicketBlocked,
+  isSetFullyConnected,
 } from "./utils/gameUtils";
 import { RulesPanel } from "./Components/RulesPanel";
 import { StartScreen } from "./Components/StartScreen";
@@ -23,6 +26,7 @@ import { OpponentPanel } from "./Components/OpponentPanel";
 import { PlayerBoard } from "./Components/PlayerBoard";
 import { TicketSelection } from "./Components/TicketSelection";
 import { OnlineGame } from "./Components/OnlineGame";
+import { MoveLog } from "./Components/MoveLog";
 
 export default function Home() {
   const [roomId, setRoomId] = useState(null);
@@ -50,7 +54,6 @@ export default function Home() {
 
   const [rulesShown, setRulesShown] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
-  const [initialState, setInitialState] = useState(null);
   const [aiSelectingTickets, setAiSelectingTickets] = useState(false);
 
   const [playerHand, setPlayerHand] = useState({ ...EMPTY_HAND });
@@ -95,6 +98,7 @@ export default function Home() {
   const [aiNumberBonuses, setAiNumberBonuses] = useState([]);
   const [finalBonusesApplied, setFinalBonusesApplied] = useState(false);
   const [aiLastActions, setAiLastActions] = useState([]);
+  const [moveLog, setMoveLog] = useState([]);
   const isAiThinkingRef = useRef(false);
   const lastProcessedAiAction = useRef("");
   const claimedRoutesRef = useRef({});
@@ -110,7 +114,6 @@ export default function Home() {
     const state = getInitialGameState(n, extraManual);
     setNumAIs(n);
     setNumExtraManual(extraManual);
-    setInitialState(state);
     setPlayerHand(state.playerHand);
     setExtraManualHands(state.extraManualHands);
     setExtraManualScores(Array(extraManual).fill(0));
@@ -170,18 +173,27 @@ export default function Home() {
         color: card.rainbow ? "rainbow" : card.color,
         index,
       });
+      addMoveLogEntry(
+        "Player 1",
+        `drew a ${card.rainbow ? "rainbow" : card.color} card from the display`,
+      );
+    } else {
+      addMoveLogEntry(
+        `Player ${currentExtraManualIndex + 2}`,
+        `drew a ${card.rainbow ? "rainbow" : card.color} card from the display`,
+      );
     }
 
     const colorKey = card.rainbow ? "rainbow" : card.color;
     if (isExtraManualTurn) {
-      const idx = currentExtraManualIndex;
+      const emIdx = currentExtraManualIndex;
       setExtraManualHands((prev) =>
         prev.map((h, i) =>
-          i === idx ? { ...h, [colorKey]: (h[colorKey] ?? 0) + 1 } : h,
+          i === emIdx ? { ...h, [colorKey]: (h[colorKey] ?? 0) + 1 } : h,
         ),
       );
       setExtraManualLastActions((prev) =>
-        prev.map((a, i) => (i === idx ? "Drew from the display" : a)),
+        prev.map((a, i) => (i === emIdx ? "Drew from the display" : a)),
       );
     } else {
       setPlayerHand((prev) => ({
@@ -190,20 +202,7 @@ export default function Home() {
       }));
     }
 
-    let nextDisplay = [...displayCards],
-      nextDeck = [...trainDeck],
-      nextDiscard = [...discardPile];
-    if (nextDeck.length === 0 && nextDiscard.length > 0) {
-      nextDeck = shuffle(nextDiscard);
-      nextDiscard = [];
-    }
-    if (nextDeck.length > 0) {
-      nextDisplay[index] = nextDeck[0];
-      nextDeck = nextDeck.slice(1);
-    } else {
-      nextDisplay.splice(index, 1);
-    }
-    const result = checkThreeRainbows(nextDisplay, nextDeck, nextDiscard);
+    const result = refillDisplay(displayCards, trainDeck, discardPile, index);
     setDisplayCards(result.display);
     setTrainDeck(result.deck);
     setDiscardPile(result.discard);
@@ -239,6 +238,12 @@ export default function Home() {
         action: "draw_deck",
         color: card.rainbow ? "rainbow" : card.color,
       });
+      addMoveLogEntry("Player 1", "drew a card from the deck");
+    } else {
+      addMoveLogEntry(
+        `Player ${currentExtraManualIndex + 2}`,
+        "drew a card from the deck",
+      );
     }
     const colorKey = card.rainbow ? "rainbow" : card.color;
     if (isExtraManualTurn) {
@@ -288,10 +293,10 @@ export default function Home() {
       return;
     }
     if (isExtraManualTurn) {
-      const idx = currentExtraManualIndex;
+      const emIdx = currentExtraManualIndex;
       setExtraManualHands((prev) => {
         const next = prev.map((h, i) => {
-          if (i !== idx) return h;
+          if (i !== emIdx) return h;
           const nh = { ...h };
           const spent = [];
           for (const [k, v] of Object.entries(deduction || {})) {
@@ -447,11 +452,19 @@ export default function Home() {
           i === emIdx ? `Drew tickets, kept ${selected.length}` : a,
         ),
       );
+      addMoveLogEntry(
+        `Player ${emIdx + 2}`,
+        `kept ${selected.length} ticket${selected.length !== 1 ? "s" : ""}`,
+      );
       if (!gameOver) incrementTurn();
       return;
     }
     const selected = selectedIndices.map((idx) => drawingTickets[idx]);
     logPlayerAction({ action: "select_tickets", tickets: selected });
+    addMoveLogEntry(
+      "Player 1",
+      `kept ${selected.length} ticket${selected.length !== 1 ? "s" : ""}`,
+    );
     const nextPT = [...playerTicketsRef.current, ...selected];
     playerTicketsRef.current = nextPT;
     setPlayerTickets(nextPT);
@@ -482,17 +495,31 @@ export default function Home() {
   const claimRoute = (routeId, side, type) => {
     if (drawingTickets || extraManualDrawingTickets || aiSelectingTickets)
       return;
+    const claimRouteData = ROUTES.find((r) => r.id === routeId);
+    const claimLen = claimRouteData ? claimRouteData.trainCount : 0;
     if (type === "player" || type.startsWith("player")) {
       logPlayerAction({ action: "claim_route", routeId, side });
+      const claimLabel =
+        type === "player"
+          ? "Player 1"
+          : `Player ${parseInt(type.replace("player", ""), 10) + 1}`;
+      addMoveLogEntry(
+        claimLabel,
+        `claimed a route (${claimLen} train${claimLen !== 1 ? "s" : ""})`,
+      );
+    } else if (type.startsWith("ai")) {
+      const aiIdx = parseInt(type.replace("ai", ""), 10);
+      addMoveLogEntry(
+        `AI ${aiIdx + 1}`,
+        `claimed a route (${claimLen} train${claimLen !== 1 ? "s" : ""})`,
+      );
     }
     if (isExtraManualTurn) {
-      const route = ROUTES.find((r) => r.id === routeId);
-      const length = route ? route.trainCount : 0;
       const emIdx = currentExtraManualIndex;
       setExtraManualLastActions((prev) =>
         prev.map((a, i) =>
           i === emIdx
-            ? `Claimed route (${length} train${length !== 1 ? "s" : ""})`
+            ? `Claimed route (${claimLen} train${claimLen !== 1 ? "s" : ""})`
             : a,
         ),
       );
@@ -500,58 +527,6 @@ export default function Home() {
     const next = { ...claimedRoutesRef.current, [`${routeId}_${side}`]: type };
     claimedRoutesRef.current = next;
     setClaimedRoutes(next);
-  };
-
-  const isTicketBlocked = (ticket, playerKey) => {
-    const adj = new Map();
-    const addEdge = (u, v) => {
-      if (!adj.has(u)) adj.set(u, new Set());
-      adj.get(u).add(v);
-    };
-    for (const route of ROUTES) {
-      const connects = getRouteConnects(route);
-      if (!connects || !connects[0] || !connects[1]) continue;
-      const [a, b] = connects;
-      if (route.isDouble) {
-        for (const side of ["even", "odd"]) {
-          const key = `${route.id}_${side}`;
-          const claimer = claimedRoutes[key];
-          if (!claimer || claimer === playerKey) {
-            addEdge(a, b);
-            addEdge(b, a);
-          }
-        }
-      } else {
-        const key = `${route.id}_single`;
-        const claimer = claimedRoutes[key];
-        if (!claimer || claimer === playerKey) {
-          addEdge(a, b);
-          addEdge(b, a);
-        }
-      }
-    }
-    const visited = new Set([ticket.cityA]);
-    const q = [ticket.cityA];
-    while (q.length) {
-      const u = q.shift();
-      if (u === ticket.cityB) return false; // still reachable → not blocked
-      for (const v of adj.get(u) || []) {
-        if (!visited.has(v)) {
-          visited.add(v);
-          q.push(v);
-        }
-      }
-    }
-    return true; // cityB unreachable → blocked
-  };
-
-  const isSetFullyConnected = (edges, names) => {
-    if (!names || names.length <= 1) return false;
-    const start = names[0];
-    for (let i = 1; i < names.length; i++) {
-      if (!isConnectedViaEdges(edges, start, names[i])) return false;
-    }
-    return true;
   };
 
   const applyNumberBonuses = (
@@ -663,6 +638,10 @@ export default function Home() {
 
   const logPlayerAction = (action) => {
     setPlayerTurnActions((prev) => [...prev, action]);
+  };
+
+  const addMoveLogEntry = (player, text) => {
+    setMoveLog((prev) => [...prev, { player, text }]);
   };
 
   const getUsefulRoutesForTicket = (
@@ -1014,30 +993,13 @@ Respond with ONE JSON object only.`,
     }
 
     const colorKey = card.rainbow ? "rainbow" : card.color;
-    const aidx = currentAiIndex;
     setAiHands((prev) =>
       prev.map((h, i) =>
-        i === aidx ? { ...h, [colorKey]: (h[colorKey] ?? 0) + 1 } : h,
+        i === currentAiIndex ? { ...h, [colorKey]: (h[colorKey] ?? 0) + 1 } : h,
       ),
     );
 
-    let nextDisplay = [...displayCards],
-      nextDeck = [...trainDeck],
-      nextDiscard = [...discardPile];
-
-    if (nextDeck.length === 0 && nextDiscard.length > 0) {
-      nextDeck = shuffle(nextDiscard);
-      nextDiscard = [];
-    }
-
-    if (nextDeck.length > 0) {
-      nextDisplay[index] = nextDeck[0];
-      nextDeck = nextDeck.slice(1);
-    } else {
-      nextDisplay.splice(index, 1);
-    }
-
-    const result = checkThreeRainbows(nextDisplay, nextDeck, nextDiscard);
+    const result = refillDisplay(displayCards, trainDeck, discardPile, index);
     setDisplayCards(result.display);
     setTrainDeck(result.deck);
     setDiscardPile(result.discard);
@@ -1045,6 +1007,7 @@ Respond with ONE JSON object only.`,
     setAiLastActions((prev) =>
       prev.map((a, i) => (i === currentAiIndex ? "Drew from the display" : a)),
     );
+    addMoveLogEntry(`AI ${currentAiIndex + 1}`, `drew a card from the display`);
     const draws = card.rainbow ? 2 : 1;
     const total = cardsDrawn + draws;
     if (total >= 2) {
@@ -1071,10 +1034,9 @@ Respond with ONE JSON object only.`,
     }
     const card = currentDeck[0];
     const colorKey = card.rainbow ? "rainbow" : card.color;
-    const aidx2 = currentAiIndex;
     setAiHands((prev) =>
       prev.map((h, i) =>
-        i === aidx2 ? { ...h, [colorKey]: (h[colorKey] ?? 0) + 1 } : h,
+        i === currentAiIndex ? { ...h, [colorKey]: (h[colorKey] ?? 0) + 1 } : h,
       ),
     );
     setTrainDeck(currentDeck.slice(1));
@@ -1082,6 +1044,7 @@ Respond with ONE JSON object only.`,
     setAiLastActions((prev) =>
       prev.map((a, i) => (i === currentAiIndex ? "Drew from the deck" : a)),
     );
+    addMoveLogEntry(`AI ${currentAiIndex + 1}`, "drew a card from the deck");
     const total = cardsDrawn + 1;
     if (total >= 2) {
       incrementTurn();
@@ -1102,9 +1065,8 @@ Respond with ONE JSON object only.`,
     const drawn = ticketDeck.slice(0, 2);
     setTicketDeck((prev) => prev.slice(2));
 
-    const aidx3 = currentAiIndex;
-    const currentTickets = aiTickets[aidx3] || [];
-    const currentHand = aiHands[aidx3] || {};
+    const currentTickets = aiTickets[currentAiIndex] || [];
+    const currentHand = aiHands[currentAiIndex] || {};
 
     const keepIndices = await fetchAiTicketChoice(
       drawn,
@@ -1115,7 +1077,7 @@ Respond with ONE JSON object only.`,
 
     const keptTickets = keepIndices.map((i) => drawn[i]);
     const nextAT = aiTicketsRef.current.map((t, i) =>
-      i === aidx3 ? [...t, ...keptTickets] : t,
+      i === currentAiIndex ? [...t, ...keptTickets] : t,
     );
     aiTicketsRef.current = nextAT;
     setAiTickets(nextAT);
@@ -1123,6 +1085,10 @@ Respond with ONE JSON object only.`,
       prev.map((a, i) =>
         i === currentAiIndex ? `Drew tickets, kept ${keptTickets.length}` : a,
       ),
+    );
+    addMoveLogEntry(
+      `AI ${currentAiIndex + 1}`,
+      `kept ${keptTickets.length} ticket${keptTickets.length !== 1 ? "s" : ""}`,
     );
     if (!gameOver) incrementTurn();
   };
@@ -1357,7 +1323,7 @@ Respond with ONE JSON object only.`,
               hand={hand}
               tickets={extraManualTickets[i]}
               lastAction={extraManualLastActions[i] ?? "None yet"}
-              isActiveTurn={isExtraManualTurn && currentExtraManualIndex === i}
+              isActiveTurn={false}
               isThinking={false}
               gameOver={gameOver}
             />
@@ -1392,10 +1358,10 @@ Respond with ONE JSON object only.`,
           const key = isExtraManualTurn
             ? `player${currentExtraManualIndex + 2}`
             : "player";
-          const edges = getClaimedEdges(key);
+          const edges = getClaimedEdges(claimedRoutes, key);
           return tickets.map((t) => ({
             ...t,
-            blocked: isTicketBlocked(t, key),
+            blocked: isTicketBlocked(t, key, claimedRoutes),
             completed: isConnectedViaEdges(edges, t.cityA, t.cityB),
           }));
         })()}
@@ -1438,6 +1404,8 @@ Respond with ONE JSON object only.`,
         displayCards={displayCards}
         onDrawFromDisplay={drawFromDisplay}
       />
+
+      <MoveLog entries={moveLog} />
     </div>
   );
 }
