@@ -8,120 +8,20 @@ import {
   useSelf,
 } from "../../liveblocks.config";
 import { shuffle } from "../utils/shuffle";
+import { TICKETS, INITIAL_TRAIN_CARDS_DECK, ROUTES } from "../data/gameData";
 import {
-  CITIES,
-  TICKETS,
-  INITIAL_TRAIN_CARDS_DECK,
-  ROUTES,
-} from "../data/gameData";
+  EMPTY_HAND,
+  checkThreeRainbows,
+  getRouteConnects,
+  isConnectedViaEdges,
+  getClaimedEdges,
+  groupCitiesByNumber,
+} from "../utils/gameUtils";
 import { GameHeader } from "./GameHeader";
 import { PlayerBoard } from "./PlayerBoard";
 import { GameOverModal } from "./GameOverModal";
 import { TicketSelection } from "./TicketSelection";
-
-const checkThreeRainbows = (currentDisplay, currentDeck, currentDiscard) => {
-  let display = [...currentDisplay],
-    deck = [...currentDeck],
-    discard = [...currentDiscard];
-  while (display.filter((c) => c.rainbow).length >= 3) {
-    discard = [...discard, ...display];
-    if (deck.length < 5 && discard.length > 0) {
-      deck = [...deck, ...shuffle(discard)];
-      discard = [];
-    }
-    display = deck.slice(0, 5);
-    deck = deck.slice(5);
-    if (display.length === 0) break;
-  }
-  return { display, deck, discard };
-};
-
-const routeConnectCache = {};
-
-const inferRouteConnectsByGeometry = (route) => {
-  if (!route) return null;
-  if (routeConnectCache[route.id]) return routeConnectCache[route.id];
-  const start = { x: route.x, y: route.y };
-  let dx = 0,
-    dy = 0;
-  (route.tiles || []).forEach((tile) => {
-    const ang = Number(tile.angle) || 0;
-    const rad = (ang * Math.PI) / 180;
-    dx += 80 * Math.cos(rad);
-    dy += 80 * Math.sin(rad);
-  });
-  const end = { x: start.x + dx, y: start.y + dy };
-  const nearestCityTo = (pt) => {
-    let best = null;
-    for (const c of CITIES) {
-      const ddx = (c.x ?? 0) - pt.x,
-        ddy = (c.y ?? 0) - pt.y;
-      const d2 = ddx * ddx + ddy * ddy;
-      if (!best || d2 < best.d2) best = { name: c.name, d2 };
-    }
-    return best ? best.name : null;
-  };
-  const a = nearestCityTo(start);
-  let b = nearestCityTo(end);
-  if (b === a) {
-    let bestAlt = null;
-    for (const c of CITIES) {
-      if (c.name === a) continue;
-      const ddx = (c.x ?? 0) - end.x,
-        ddy = (c.y ?? 0) - end.y;
-      const d2 = ddx * ddx + ddy * ddy;
-      if (!bestAlt || d2 < bestAlt.d2) bestAlt = { name: c.name, d2 };
-    }
-    if (bestAlt) b = bestAlt.name;
-  }
-  const connects = a && b ? [a, b] : null;
-  if (connects) routeConnectCache[route.id] = connects;
-  return connects;
-};
-
-const getRouteConnects = (route) => {
-  if (Array.isArray(route.connects) && route.connects.length === 2)
-    return route.connects;
-  return inferRouteConnectsByGeometry(route);
-};
-
-const getClaimedEdges = (claimedRoutes, claimer) => {
-  const edges = [];
-  for (const [k, v] of Object.entries(claimedRoutes || {})) {
-    if (v !== claimer) continue;
-    const [routeIdStr] = k.split("_");
-    const route = ROUTES.find((r) => r.id === Number(routeIdStr));
-    if (!route) continue;
-    const connects = getRouteConnects(route);
-    if (connects && connects[0] && connects[1])
-      edges.push([connects[0], connects[1]]);
-  }
-  return edges;
-};
-
-const isConnectedViaEdges = (edges, start, goal) => {
-  if (start === goal) return true;
-  const adj = new Map();
-  for (const [a, b] of edges) {
-    if (!adj.has(a)) adj.set(a, new Set());
-    if (!adj.has(b)) adj.set(b, new Set());
-    adj.get(a).add(b);
-    adj.get(b).add(a);
-  }
-  const visited = new Set([start]);
-  const q = [start];
-  while (q.length) {
-    const u = q.shift();
-    if (u === goal) return true;
-    for (const v of adj.get(u) || []) {
-      if (!visited.has(v)) {
-        visited.add(v);
-        q.push(v);
-      }
-    }
-  }
-  return false;
-};
+import { OpponentPanel } from "./OpponentPanel";
 
 const isTicketBlocked = (ticket, playerKey, claimedRoutes) => {
   const adj = new Map();
@@ -155,16 +55,6 @@ const isTicketBlocked = (ticket, playerKey, claimedRoutes) => {
   return true;
 };
 
-const groupCitiesByNumber = () => {
-  const groups = new Map();
-  for (const c of CITIES) {
-    const n = Number(c.number) || 0;
-    if (!groups.has(n)) groups.set(n, []);
-    groups.get(n).push(c.name);
-  }
-  return groups;
-};
-
 const isSetFullyConnected = (edges, names) => {
   if (!names || names.length <= 1) return false;
   const start = names[0];
@@ -183,22 +73,12 @@ const buildInitialState = (numPlayers) => {
   } = checkThreeRainbows(rawDeck.slice(0, 5), rawDeck.slice(5), []);
 
   const ticketDeckShuffled = shuffle([...TICKETS]);
-  const emptyHand = {
-    orange: 0,
-    blue: 0,
-    black: 0,
-    red: 0,
-    yellow: 0,
-    green: 0,
-    rainbow: 0,
-  };
-
   let deckOffset = 0;
   const players = [];
   for (let i = 0; i < numPlayers; i++) {
     const trainCards = deckAfterDisplay.slice(deckOffset, deckOffset + 2);
     deckOffset += 2;
-    const hand = { ...emptyHand };
+    const hand = { ...EMPTY_HAND };
     trainCards.forEach((c) => {
       const k = c.rainbow ? "rainbow" : c.color;
       hand[k]++;
@@ -846,72 +726,19 @@ export function OnlineGame({ roomId, playerName, isHost }) {
         {gameState.players.map((player, pi) => {
           if (pi === myPlayerIndex) return null;
           const label = pi === 0 ? "Player 1" : `Player ${pi + 1}`;
-          const isTheirTurn = gameState.currentPlayerIndex === pi;
           return (
-            <div key={pi} className="flex gap-4 mb-4">
-              <div
-                className={`p-4 rounded-xl shadow-lg flex gap-8 ${isTheirTurn ? "bg-blue-600 text-white" : "bg-zinc-200 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-100"}`}
-              >
-                <div className="flex flex-col items-center">
-                  <span
-                    className={`text-[10px] uppercase font-bold ${isTheirTurn ? "text-blue-200" : "text-zinc-500 dark:text-zinc-400"}`}
-                  >
-                    {label} Points
-                  </span>
-                  <span className="text-2xl font-black">{player.score}</span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <span
-                    className={`text-[10px] uppercase font-bold ${isTheirTurn ? "text-blue-200" : "text-zinc-500 dark:text-zinc-400"}`}
-                  >
-                    {label} Trains
-                  </span>
-                  <span className="text-2xl font-black">
-                    {17 - (player.placedTiles || 0)}
-                  </span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <span
-                    className={`text-[10px] uppercase font-bold ${isTheirTurn ? "text-blue-200" : "text-zinc-500 dark:text-zinc-400"}`}
-                  >
-                    {label} Cards
-                  </span>
-                  <span className="text-2xl font-black">
-                    {Object.values(player.hand || {}).reduce(
-                      (a, b) => a + b,
-                      0,
-                    )}
-                  </span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <span
-                    className={`text-[10px] uppercase font-bold ${isTheirTurn ? "text-blue-200" : "text-zinc-500 dark:text-zinc-400"}`}
-                  >
-                    {label} Tickets
-                  </span>
-                  <span className="text-2xl font-black">
-                    {(player.tickets || []).length}
-                  </span>
-                </div>
-                <div className="flex flex-col items-center justify-center">
-                  <span
-                    className={`text-xs font-bold text-blue-200 animate-pulse ${isTheirTurn ? "opacity-100" : "opacity-0"}`}
-                  >
-                    THEIR TURN
-                  </span>
-                </div>
-              </div>
-              {player.lastAction && (
-                <div className="flex items-center">
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400 ">
-                    <span className="font-bold text-zinc-700 dark:text-zinc-200 ">
-                      {label} last action:
-                    </span>{" "}
-                    {player.lastAction}
-                  </p>
-                </div>
-              )}
-            </div>
+            <OpponentPanel
+              key={pi}
+              label={label}
+              score={player.score}
+              placedTiles={player.placedTiles}
+              hand={player.hand}
+              tickets={player.tickets}
+              lastAction={player.lastAction}
+              isActiveTurn={gameState.currentPlayerIndex === pi}
+              isThinking={false}
+              gameOver={gameState.gameOver}
+            />
           );
         })}
       </div>
