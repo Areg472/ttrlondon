@@ -4,7 +4,7 @@ Try it out at https://ttrlondon.aregus.me
 
 To use this locally you have to download the project and stuff, and do npm install + npm build + npm start.
 
-Required env
+Required envs
 ```
 HACK_CLUB_AI_KEY=
 LIVEBLOCKS_SECRET_KEY=
