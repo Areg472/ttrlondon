@@ -1,7 +1,5 @@
 ### This is a replica of a goated game called Ticket to Ride ~~Europe~~ London :D
 
-its still in workings, but hopefully ill finish it.
-
 Try it out at https://ttrlondon.aregus.me
 
 To use this locally you have to download the project and stuff, and do npm install + npm build + npm start.
