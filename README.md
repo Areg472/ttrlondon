@@ -9,6 +9,8 @@ To use this locally you have to download the project and stuff, and do npm insta
 Required env
 ```
 HACK_CLUB_AI_KEY=
+LIVEBLOCKS_SECRET_KEY=
+NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY=
 ```
 Also, AI has been used to create mechanics related to the game, a lot of things have been written by hand, i just suck at logic and math :<
 TransitTime
