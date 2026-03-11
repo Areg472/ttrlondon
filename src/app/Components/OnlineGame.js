@@ -112,13 +112,10 @@ function RoomLobby({ roomId, playerName, isHost, onStart }) {
   const totalPlayers = 1 + others.length;
 
   const buildSlotsAndStart = () => {
-    const allNames = [
-      self?.presence?.name || playerName,
-      ...others.map((o) => o.presence?.name || "Player"),
-    ];
     const slots = {};
-    allNames.forEach((name, i) => {
-      slots[name] = i;
+    slots[self?.connectionId] = 0;
+    others.forEach((o, i) => {
+      slots[o.connectionId] = i + 1;
     });
     onStart(totalPlayers, slots);
   };
@@ -189,7 +186,7 @@ export function OnlineGame({ roomId, playerName, isHost }) {
   const self = useSelf();
 
   const myPlayerIndex = playerSlots
-    ? (playerSlots[playerName] ?? -1)
+    ? (playerSlots[self?.connectionId] ?? -1)
     : isHost
       ? 0
       : -1;
@@ -221,7 +218,7 @@ export function OnlineGame({ roomId, playerName, isHost }) {
   const onlinePlayerIndices = new Set();
   if (self && myPlayerIndex >= 0) onlinePlayerIndices.add(myPlayerIndex);
   for (const o of others) {
-    const idx = playerSlots ? (playerSlots[o.presence?.name] ?? -1) : -1;
+    const idx = playerSlots ? (playerSlots[o.connectionId] ?? -1) : -1;
     if (idx >= 0) onlinePlayerIndices.add(idx);
   }
   const disconnectedPlayers = gameState?.gameStarted
@@ -230,6 +227,7 @@ export function OnlineGame({ roomId, playerName, isHost }) {
         .filter((i) => !onlinePlayerIndices.has(i))
     : [];
 
+  const disconnectedPlayersKey = JSON.stringify(disconnectedPlayers);
   const disconnectTimerRef = useRef(null);
 
   useEffect(() => {
@@ -254,7 +252,7 @@ export function OnlineGame({ roomId, playerName, isHost }) {
         disconnectTimerRef.current = null;
       }
     };
-  }, [disconnectedPlayers.length, gameState?.gameOver]);
+  }, [disconnectedPlayersKey, gameState?.gameOver]);
 
   const initGame = useMutation(({ storage }, numPlayers, slots) => {
     const state = buildInitialState(numPlayers);
