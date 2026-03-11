@@ -774,6 +774,7 @@ export function OnlineGame({ roomId, playerName, isHost }) {
         cardsDrawn={gameState?.cardsDrawn ?? 0}
         isAiTurn={!isMyTurn || anyoneSelectingInitial}
         numAIs={0}
+        totalPlayers={gameState.players.length}
         claimedRoutes={gameState.claimedRoutes ?? {}}
         claimRoute={claimRoute}
         playerClaimerKey={myClaimerKey}

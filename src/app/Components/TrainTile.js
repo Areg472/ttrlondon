@@ -22,6 +22,7 @@ export const PlayerHandContext = React.createContext({
   claimedRoutes: {},
   claimRoute: (_routeId, _side, _type) => {},
   playerClaimerKey: "player",
+  totalPlayers: 2,
 });
 
 export function TrainTileCont({
@@ -46,12 +47,15 @@ export function TrainTileCont({
       const otherSide = side === "even" ? "odd" : "even";
       const otherClaimer =
         playerHand?.claimedRoutes?.[`${routeId}_${otherSide}`];
+
+      const totalPlayers = playerHand?.totalPlayers ?? 2;
+
       if (otherClaimer) {
-        const numAIs = playerHand?.numAIs ?? 1;
-        if (
-          numAIs <= 1 ||
-          otherClaimer === (playerHand?.playerClaimerKey ?? "player")
-        )
+        // In 2 player games, if one side is claimed, the other is blocked for everyone.
+        if (totalPlayers <= 2) return false;
+
+        // In 3-4 player games, both tracks can be used, but NOT by the same player.
+        if (otherClaimer === (playerHand?.playerClaimerKey ?? "player"))
           return false;
       }
     }
@@ -210,13 +214,12 @@ export function TrainTileCont({
       const otherSide = side === "even" ? "odd" : "even";
       const otherClaimer =
         playerHand?.claimedRoutes?.[`${routeId}_${otherSide}`];
+
+      const totalPlayers = playerHand?.totalPlayers ?? 2;
+
       if (otherClaimer) {
-        const numAIs = playerHand?.numAIs ?? 1;
-        if (
-          numAIs <= 1 ||
-          otherClaimer === (playerHand?.playerClaimerKey ?? "player")
-        )
-          return;
+        if (totalPlayers <= 2) return;
+        if (otherClaimer === (playerHand?.playerClaimerKey ?? "player")) return;
       }
       if (claimedSide && claimedSide !== side) return;
       if (!claimedSide) {

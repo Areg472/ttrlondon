@@ -818,6 +818,19 @@ export default function Home() {
       canDrawNow: !(c.rainbow && cardsDrawn >= 1),
     }));
 
+    const allUnclaimedRoutes = ROUTES.filter(
+      (r) =>
+        !claimedRoutes[`${r.id}_single`] &&
+        !claimedRoutes[`${r.id}_even`] &&
+        !claimedRoutes[`${r.id}_odd`],
+    ).map((r) => ({
+      id: r.id,
+      color: r.color,
+      trainCount: r.trainCount,
+      connects: getRouteConnects(r),
+      isDouble: !!r.isDouble,
+    }));
+
     const gameState = {
       aiHand: myHand,
       aiTickets: myTickets,
@@ -834,6 +847,7 @@ export default function Home() {
       ticketDeckCount: ticketDeck.length,
       claimedRoutes,
       ticketAnalysis,
+      allUnclaimedRoutes,
     };
 
     const difficultyPrompt =
@@ -848,25 +862,26 @@ ${
           ? `You are a highly strategic expert player. Your goals in order:
 ${
   gameState.cardsDrawn === 1
-    ? `cardsDrawn=1: draw ONE more card. Pick the display card where isNeeded=true AND canDrawNow=true AND isRainbow=false with the highest trainCount (hardest to collect = most valuable). If none, draw_deck.`
+    ? `cardsDrawn=1: draw ONE more card. Pick the display card where isNeeded=true AND canDrawNow=true AND isRainbow=false. If none, draw_deck.`
     : `cardsDrawn=0 — follow this priority:
-1. BLOCK opponents: if playerTurnActions shows the player just claimed a route, check if any of your incomplete tickets share cities with the player's claimed routes. If a key connecting route for your ticket is still unclaimed and affordable, claim it immediately to secure it before the player does.
-2. affordableRoutes has any entry with alreadyOwned=false for any incomplete ticket? → place_tiles on the route that completes the highest-points ticket first. Among ties, prefer routes with higher trainCount (more points). Use routeId, side, color from affordableRoutes.
-3. usefulRoutes non-empty but none affordable? → draw the display card where isNeeded=true AND canDrawNow=true, preferring rainbow first (cardsDrawn=0), then the color needed by the highest-points incomplete ticket. If no such display card, draw_deck.
-4. All incomplete tickets have empty usefulRoutes AND ticketDeckCount>0? → draw_tickets to get more objectives.
+1. BLOCK opponents strategically: 
+   - Check playerTurnActions. If a player recently claimed a route, identify if they are building towards a certain area.
+   - Look at ALL unclaimed routes. If a route is critical (e.g., a short bottleneck like 'gray' routes or routes connecting major cities), and you have the cards, CLAIM it even if it's not on your direct ticket path, ESPECIALLY if the player needs it.
+   - If player has high score or many cards, prioritize blocking their potential long paths.
+2. Complete your tickets: if affordableRoutes has any entry for an incomplete ticket, claim it. Prefer longer routes (more points) or bottleneck routes.
+3. Draw cards efficiently: if usefulRoutes exists, draw needed colors from display. If a rainbow is available and cardsDrawn=0, ALWAYS take it if you need flexibility.
+4. If no clear path, draw_tickets to find new opportunities, but only if you have at least 10 trains left.
 5. Otherwise → draw_deck.`
 }`
-          : `cardsDrawn=${gameState.cardsDrawn}. displayCardOptions=${JSON.stringify(gameState.displayCardOptions)} (index=position, isNeeded=helps your tickets, canDrawNow=allowed by rules).
-
-Follow EXACTLY:
+          : `You are a balanced player.
 ${
   gameState.cardsDrawn === 1
-    ? `cardsDrawn=1: draw ONE more card. Priority: pick the display card with the highest index where isNeeded=true AND canDrawNow=true AND isRainbow=false. If none, draw_deck.`
-    : `cardsDrawn=0 priority order (stop at first that applies):
-1. affordableRoutes has any entry with alreadyOwned=false for any incomplete ticket? → place_tiles on that unowned route (highest points ticket first, prefer routes with alreadyOwned=false). Use routeId, side, color from that affordableRoutes entry. NOTE: routes with alreadyOwned=true are already claimed by you and count toward multiple tickets for free — never place_tiles on them.
-2. usefulRoutes non-empty but none affordable? → draw the display card where isNeeded=true AND canDrawNow=true (prefer rainbow if available and cardsDrawn=0, else pick the needed color with lowest trainCount requirement). If no such display card, draw_deck.
-3. All incomplete tickets have empty usefulRoutes AND ticketDeckCount>0? → draw_tickets.
-4. Otherwise → draw_deck.`
+    ? `cardsDrawn=1: draw ONE more card. Pick the display card where isNeeded=true AND canDrawNow=true AND isRainbow=false. If none, draw_deck.`
+    : `cardsDrawn=0 priority:
+1. If you can complete a ticket with an affordable route, do it.
+2. If you need specific colors for your tickets, draw them from the display.
+3. If no needed colors in display, draw_deck.
+4. If all tickets done, draw_tickets.`
 }`;
 
     try {
@@ -1391,6 +1406,7 @@ Respond with ONE JSON object only.`,
         cardsDrawn={cardsDrawn}
         isAiTurn={isAiTurn || aiSelectingTickets}
         numAIs={numAIs}
+        totalPlayers={1 + (numAIs || 0) + (numExtraManual || 0)}
         claimedRoutes={claimedRoutes}
         claimRoute={claimRoute}
         playerClaimerKey={
