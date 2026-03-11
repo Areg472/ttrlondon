@@ -11,10 +11,6 @@ export const PlayerHandContext = React.createContext({
   black: 0,
   rainbow: 0,
   placedTiles: 0,
-  spendCards: (_deduction) => {},
-  addPoints: (_points) => {},
-  canPlaceMore: (_needed) => true,
-  incrementPlaced: (_n) => {},
   incrementTurn: () => {},
   cardsDrawn: 0,
   isAiTurn: false,
@@ -63,11 +59,7 @@ export function TrainTileCont({
     if (playerHand?.cardsDrawn > 0) return false;
     const length = Number(trainCount) || 0,
       wilds = playerHand?.rainbow ?? 0;
-    if (
-      !length ||
-      (playerHand?.canPlaceMore && !playerHand.canPlaceMore(length))
-    )
-      return false;
+    if (!length) return false;
     if (routeColor === "gray")
       return (
         baseColors.some((c) => (playerHand?.[c] ?? 0) + wilds >= length) ||
@@ -146,22 +138,16 @@ export function TrainTileCont({
     return null;
   };
 
-  const doSpendAndClaim = (tileColor, index, chosenColor = null) => {
+  const doSpendAndClaim = (tileColor, side, chosenColor = null) => {
     const length = Number(trainCount) || 0;
-    if (playerHand?.canPlaceMore && !playerHand.canPlaceMore(length))
-      return false;
     const deduction =
       tileColor === "gray" && chosenColor !== undefined
         ? computeDeductionForColor(chosenColor, length)
         : computeDeduction(tileColor);
     if (!deduction) return false;
-    if (playerHand?.spendCards) playerHand.spendCards(deduction);
-    if (playerHand?.addPoints) {
-      const points = { 1: 1, 2: 2, 3: 4, 4: 7 }[length] || 0;
-      if (points) playerHand.addPoints(points);
-    }
-    if (playerHand?.incrementPlaced) playerHand.incrementPlaced(length);
-    if (playerHand?.incrementTurn) playerHand.incrementTurn();
+    const points = { 1: 1, 2: 2, 3: 4, 4: 7 }[length] || 0;
+    if (playerHand?.claimRoute)
+      playerHand.claimRoute(routeId, side, deduction, points, length);
     return true;
   };
 
@@ -169,43 +155,26 @@ export function TrainTileCont({
     if (isDouble) {
       const side = index % 2 === 0 ? "even" : "odd";
       if (!claimedSide) {
-        if (!doSpendAndClaim(tileColor, index, chosenColor)) return;
+        if (!doSpendAndClaim(tileColor, side, chosenColor)) return;
         setClaimedSide(side);
-        if (playerHand?.claimRoute)
-          playerHand.claimRoute(
-            routeId,
-            side,
-            playerHand?.playerClaimerKey ?? "player",
-          );
       }
       side === "even" ? setTrainTrigger(true) : setTrainTriggerDouble(true);
     } else {
       if (trainTrigger) return;
-      if (!doSpendAndClaim(tileColor, index, chosenColor)) return;
+      if (!doSpendAndClaim(tileColor, "single", chosenColor)) return;
       setTrainTrigger(true);
-      if (playerHand?.claimRoute)
-        playerHand.claimRoute(
-          routeId,
-          "single",
-          playerHand?.playerClaimerKey ?? "player",
-        );
     }
   };
 
   const toggleTrigger = (index, tileColor, isDisabled) => {
     if (isDisabled) return;
-    const trySpend = () => {
+    const trySpend = (side) => {
       const length = Number(trainCount) || 0;
-      if (playerHand?.canPlaceMore && !playerHand.canPlaceMore(length))
-        return false;
       const deduction = computeDeduction(tileColor);
-      if (deduction && playerHand?.spendCards) playerHand.spendCards(deduction);
-      if (playerHand?.addPoints) {
-        const points = { 1: 1, 2: 2, 3: 4, 4: 7 }[length] || 0;
-        if (points) playerHand.addPoints(points);
-      }
-      if (playerHand?.incrementPlaced) playerHand.incrementPlaced(length);
-      if (playerHand?.incrementTurn) playerHand.incrementTurn();
+      if (!deduction) return false;
+      const points = { 1: 1, 2: 2, 3: 4, 4: 7 }[length] || 0;
+      if (playerHand?.claimRoute)
+        playerHand.claimRoute(routeId, side, deduction, points, length);
       return true;
     };
     if (isDouble) {
@@ -230,14 +199,8 @@ export function TrainTileCont({
             return;
           }
         }
-        if (!trySpend()) return;
+        if (!trySpend(side)) return;
         setClaimedSide(side);
-        if (playerHand?.claimRoute)
-          playerHand.claimRoute(
-            routeId,
-            side,
-            playerHand?.playerClaimerKey ?? "player",
-          );
       }
       side === "even" ? setTrainTrigger(true) : setTrainTriggerDouble(true);
     } else {
@@ -255,14 +218,8 @@ export function TrainTileCont({
           return;
         }
       }
-      if (!trySpend()) return;
+      if (!trySpend("single")) return;
       setTrainTrigger(true);
-      if (playerHand?.claimRoute)
-        playerHand.claimRoute(
-          routeId,
-          "single",
-          playerHand?.playerClaimerKey ?? "player",
-        );
     }
   };
 

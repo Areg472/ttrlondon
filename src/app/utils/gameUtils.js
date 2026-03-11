@@ -209,75 +209,55 @@ export const groupCitiesByNumber = () => {
 
 // ─── Game initialisation ──────────────────────────────────────────────────────
 
-export const getInitialGameState = (n, extraManual = 0) => {
-  const initialTrainDeck = [...INITIAL_TRAIN_CARDS_DECK];
+export const getInitialState = (numPlayers, playerNames = []) => {
+  const rawDeck = shuffle([...INITIAL_TRAIN_CARDS_DECK]);
   const {
-    display: initialDisplay,
-    deck: initialDeck,
-    discard: initialDiscard,
-  } = checkThreeRainbows(
-    initialTrainDeck.slice(0, 5),
-    initialTrainDeck.slice(5),
-    [],
-  );
+    display,
+    deck: deckAfterDisplay,
+    discard,
+  } = checkThreeRainbows(rawDeck.slice(0, 5), rawDeck.slice(5), []);
 
-  const initialTicketDeck = shuffle([...TICKETS]);
-  const playerInitialTickets = initialTicketDeck.slice(0, 2);
-  const remainingTicketDeck = initialTicketDeck.slice(
-    2 + (extraManual + n) * 2,
-  );
-
-  const makeHand = (cards) => {
+  const ticketDeckShuffled = shuffle([...TICKETS]);
+  let deckOffset = 0;
+  const players = [];
+  for (let i = 0; i < numPlayers; i++) {
+    const trainCards = deckAfterDisplay.slice(deckOffset, deckOffset + 2);
+    deckOffset += 2;
     const hand = { ...EMPTY_HAND };
-    cards.forEach((c) => {
+    trainCards.forEach((c) => {
       hand[c.rainbow ? "rainbow" : c.color]++;
     });
-    return hand;
-  };
-
-  let deckOffset = 0;
-  const playerInitialHand = makeHand(
-    initialDeck.slice(deckOffset, (deckOffset += 2)),
-  );
-
-  const extraManualHands = [];
-  const extraManualTicketsArr = [];
-  for (let i = 0; i < extraManual; i++) {
-    extraManualHands.push(
-      makeHand(initialDeck.slice(deckOffset, (deckOffset += 2))),
-    );
-    extraManualTicketsArr.push(
-      initialTicketDeck.slice(2 + i * 2, 2 + i * 2 + 2),
-    );
-  }
-
-  const aiHands = [];
-  const aiTicketsArr = [];
-  for (let i = 0; i < n; i++) {
-    aiHands.push(makeHand(initialDeck.slice(deckOffset, (deckOffset += 2))));
-    aiTicketsArr.push(
-      initialTicketDeck.slice(
-        2 + (extraManual + i) * 2,
-        2 + (extraManual + i) * 2 + 2,
-      ),
-    );
+    const tickets = ticketDeckShuffled.slice(i * 2, i * 2 + 2);
+    players.push({
+      name: playerNames[i] || (i === 0 ? "Player" : `AI ${i}`),
+      hand,
+      tickets: [],
+      drawingTickets: tickets,
+      score: 0,
+      placedTiles: 0,
+      lastAction: null,
+      ticketResults: [],
+      numberBonuses: [],
+    });
   }
 
   return {
-    display: initialDisplay,
-    trainDeck: initialDeck.slice(deckOffset),
-    discard: initialDiscard,
-    playerHand: playerInitialHand,
-    extraManualHands,
-    extraManualTickets: extraManualTicketsArr,
-    aiHands,
-    drawingTickets: playerInitialTickets,
-    aiTickets: aiTicketsArr,
-    ticketDeck: remainingTicketDeck,
+    players,
+    displayCards: display,
+    trainDeck: deckAfterDisplay.slice(deckOffset),
+    ticketDeck: ticketDeckShuffled.slice(numPlayers * 2),
+    discardPile: discard,
+    claimedRoutes: {},
+    currentPlayerIndex: 0,
+    cardsDrawn: 0,
+    turn: 1,
+    gameOver: false,
+    lastRoundTriggered: false,
+    finalTurnsLeft: -1,
+    gameStarted: true,
+    moveLog: [],
   };
 };
-
-// ─── AI ticket selection ──────────────────────────────────────────────────────
 
 export const fetchAiTicketChoice = async (
   drawnTickets,

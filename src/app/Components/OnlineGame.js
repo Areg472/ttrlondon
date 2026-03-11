@@ -19,6 +19,7 @@ import {
   groupCitiesByNumber,
   isTicketBlocked,
   isSetFullyConnected,
+  getInitialState,
 } from "../utils/gameUtils";
 import { GameHeader } from "./GameHeader";
 import { PlayerBoard } from "./PlayerBoard";
@@ -26,58 +27,10 @@ import { GameOverModal } from "./GameOverModal";
 import { TicketSelection } from "./TicketSelection";
 import { OpponentPanel } from "./OpponentPanel";
 import { MoveLog } from "./MoveLog";
+import { useTTRGame, applyEndGameScoring } from "../hooks/useTTRGame";
 
 const buildInitialState = (numPlayers) => {
-  const rawDeck = [...INITIAL_TRAIN_CARDS_DECK];
-  const {
-    display,
-    deck: deckAfterDisplay,
-    discard,
-  } = checkThreeRainbows(rawDeck.slice(0, 5), rawDeck.slice(5), []);
-
-  const ticketDeckShuffled = shuffle([...TICKETS]);
-  let deckOffset = 0;
-  const players = [];
-  for (let i = 0; i < numPlayers; i++) {
-    const trainCards = deckAfterDisplay.slice(deckOffset, deckOffset + 2);
-    deckOffset += 2;
-    const hand = { ...EMPTY_HAND };
-    trainCards.forEach((c) => {
-      const k = c.rainbow ? "rainbow" : c.color;
-      hand[k]++;
-    });
-    const tickets = ticketDeckShuffled.slice(i * 2, i * 2 + 2);
-    players.push({
-      hand,
-      tickets: [],
-      drawingTickets: tickets,
-      score: 0,
-      placedTiles: 0,
-      lastAction: null,
-      ticketResults: [],
-      numberBonuses: [],
-    });
-  }
-
-  const remainingDeck = deckAfterDisplay.slice(deckOffset);
-  const remainingTicketDeck = ticketDeckShuffled.slice(numPlayers * 2);
-
-  return {
-    players,
-    displayCards: display,
-    trainDeck: remainingDeck,
-    ticketDeck: remainingTicketDeck,
-    discardPile: discard,
-    claimedRoutes: {},
-    currentPlayerIndex: 0,
-    cardsDrawn: 0,
-    turn: 1,
-    gameOver: false,
-    lastRoundTriggered: false,
-    finalTurnsLeft: -1,
-    gameStarted: true,
-    moveLog: [],
-  };
+  return getInitialState(numPlayers);
 };
 
 function WaitingForPlayers({ children, roomId }) {
@@ -271,41 +224,7 @@ export function OnlineGame({ roomId, playerName, isHost }) {
 
   const applyEndGameBonuses = useCallback(() => {
     finalBonusesApplied.current = true;
-    updateGameState((state) => {
-      const groups = groupCitiesByNumber();
-      const add = (arr) => arr.reduce((a, b) => a + b, 0);
-
-      state.players = state.players.map((player, pi) => {
-        const claimer = pi === 0 ? "player" : `player${pi + 1}`;
-        const edges = getClaimedEdges(state.claimedRoutes, claimer);
-
-        const numberBonuses = [];
-        for (const [num, names] of groups.entries()) {
-          if (names.length < 2) continue;
-          if (isSetFullyConnected(edges, names)) numberBonuses.push(num);
-        }
-
-        const ticketResults = player.tickets.map((t) => ({
-          ...t,
-          completed: isConnectedViaEdges(edges, t.cityA, t.cityB),
-        }));
-
-        const ticketDelta = ticketResults.reduce(
-          (sum, t) => sum + (t.completed ? t.points : -t.points),
-          0,
-        );
-        const numBonus = numberBonuses.length ? add(numberBonuses) : 0;
-
-        return {
-          ...player,
-          score: player.score + ticketDelta + numBonus,
-          ticketResults,
-          numberBonuses,
-        };
-      });
-
-      return state;
-    });
+    updateGameState((state) => applyEndGameScoring(state));
   }, [updateGameState]);
 
   useEffect(() => {
@@ -313,6 +232,14 @@ export function OnlineGame({ roomId, playerName, isHost }) {
       applyEndGameBonuses();
     }
   }, [gameState?.gameOver, isHost, applyEndGameBonuses]);
+
+  const {
+    drawFromDisplay,
+    drawFromDeck,
+    drawTickets,
+    selectTickets,
+    claimRoute,
+  } = useTTRGame(gameState, updateGameState, myPlayerIndex, playerName);
 
   const isMyTurn =
     gameState &&
@@ -343,269 +270,6 @@ export function OnlineGame({ roomId, playerName, isHost }) {
     }
     prevIsMyTurnRef.current = !!isMyTurn;
   }, [isMyTurn]);
-  const myClaimerKey =
-    myPlayerIndex === 0 ? "player" : `player${myPlayerIndex + 1}`;
-
-  const incrementTurn = useCallback(() => {
-    updateGameState((state) => {
-      const numPlayers = state.players.length;
-      const cur = state.currentPlayerIndex;
-
-      if (state.lastRoundTriggered) {
-        if (state.finalTurnsLeft === 0) {
-          state.gameOver = true;
-          return state;
-        }
-        if (state.finalTurnsLeft > 0) state.finalTurnsLeft -= 1;
-      }
-
-      const next = (cur + 1) % numPlayers;
-      state.currentPlayerIndex = next;
-      if (next === 0) state.turn += 1;
-      state.cardsDrawn = 0;
-      return state;
-    });
-  }, [updateGameState]);
-
-  const selectTickets = useCallback(
-    (selectedIndices, isMidGame = false) => {
-      if (selectedIndices.length < 1) return;
-      updateGameState((state) => {
-        const pi = myPlayerIndex;
-        const player = state.players[pi];
-        const drawn = player.drawingTickets || [];
-        const selected = selectedIndices.map((i) => drawn[i]);
-        state.players[pi] = {
-          ...player,
-          tickets: [...player.tickets, ...selected],
-          drawingTickets: null,
-          lastAction: `Drew tickets, kept ${selected.length}`,
-        };
-        if (isMidGame) {
-          state.moveLog = [
-            ...(state.moveLog || []),
-            {
-              player: playerName,
-              text: `kept ${selected.length} ticket${selected.length !== 1 ? "s" : ""}`,
-            },
-          ];
-          state.cardsDrawn = 0;
-        }
-        return state;
-      });
-      setTimeout(() => incrementTurn(), 0);
-    },
-    [updateGameState, myPlayerIndex, incrementTurn, playerName],
-  );
-
-  const drawFromDisplay = useCallback(
-    (index) => {
-      if (!isMyTurn || (gameState?.cardsDrawn ?? 0) >= 2) return;
-      const display = gameState.displayCards;
-      const card = display[index];
-      if (!card) return;
-      if (card.rainbow && (gameState?.cardsDrawn ?? 0) >= 1) return;
-
-      updateGameState((state) => {
-        const pi = myPlayerIndex;
-        const colorKey = card.rainbow ? "rainbow" : card.color;
-        const player = state.players[pi];
-        const newHand = {
-          ...player.hand,
-          [colorKey]: (player.hand[colorKey] ?? 0) + 1,
-        };
-
-        const result = refillDisplay(
-          state.displayCards,
-          state.trainDeck,
-          state.discardPile,
-          index,
-        );
-
-        const draws = card.rainbow ? 2 : 1;
-        const total = state.cardsDrawn + draws;
-
-        state.players[pi] = {
-          ...player,
-          hand: newHand,
-          lastAction: "Drew from the display",
-        };
-        state.moveLog = [
-          ...(state.moveLog || []),
-          { player: playerName, text: `drew a card from the display` },
-        ];
-        state.displayCards = result.display;
-        state.trainDeck = result.deck;
-        state.discardPile = result.discard;
-        state.cardsDrawn = total >= 2 ? 0 : total;
-
-        return state;
-      });
-
-      const draws = card.rainbow ? 2 : 1;
-      const total = (gameState?.cardsDrawn ?? 0) + draws;
-      if (total >= 2) {
-        setTimeout(() => incrementTurn(), 0);
-      }
-    },
-    [
-      isMyTurn,
-      gameState,
-      updateGameState,
-      myPlayerIndex,
-      incrementTurn,
-      playerName,
-    ],
-  );
-
-  const drawFromDeck = useCallback(() => {
-    if (!isMyTurn || (gameState?.cardsDrawn ?? 0) >= 2) return;
-    const deck = gameState.trainDeck;
-    const discard = gameState.discardPile;
-    let currentDeck = [...deck],
-      currentDiscard = [...discard];
-    if (currentDeck.length === 0 && currentDiscard.length > 0) {
-      currentDeck = shuffle(currentDiscard);
-    }
-    if (currentDeck.length === 0) return;
-    updateGameState((state) => {
-      const pi = myPlayerIndex;
-      let d = [...state.trainDeck],
-        dis = [...state.discardPile];
-      if (d.length === 0 && dis.length > 0) {
-        d = shuffle(dis);
-        dis = [];
-      }
-      if (d.length === 0) return state;
-      const c = d[0];
-      const ck = c.rainbow ? "rainbow" : c.color;
-      const player = state.players[pi];
-      state.players[pi] = {
-        ...player,
-        hand: { ...player.hand, [ck]: (player.hand[ck] ?? 0) + 1 },
-        lastAction: "Drew from the deck",
-      };
-      state.moveLog = [
-        ...(state.moveLog || []),
-        { player: playerName, text: "drew a card from the deck" },
-      ];
-      state.trainDeck = d.slice(1);
-      state.discardPile = dis;
-      const total = state.cardsDrawn + 1;
-      state.cardsDrawn = total >= 2 ? 0 : total;
-      return state;
-    });
-
-    const total = (gameState?.cardsDrawn ?? 0) + 1;
-    if (total >= 2) {
-      setTimeout(() => incrementTurn(), 0);
-    }
-  }, [
-    isMyTurn,
-    gameState,
-    updateGameState,
-    myPlayerIndex,
-    incrementTurn,
-    playerName,
-  ]);
-
-  const drawTickets = useCallback(() => {
-    if (!isMyTurn || (gameState?.cardsDrawn ?? 0) > 0) return;
-    if (!gameState.ticketDeck || gameState.ticketDeck.length === 0) return;
-    updateGameState((state) => {
-      const pi = myPlayerIndex;
-      const deck = /** @type {Array} */ (state.ticketDeck);
-      const drawn = deck.slice(0, 2);
-      state.ticketDeck = deck.slice(2);
-      state.players[pi] = { ...state.players[pi], drawingTickets: drawn };
-      return state;
-    });
-  }, [isMyTurn, gameState, updateGameState, myPlayerIndex]);
-
-  const claimRoute = useCallback(
-    (routeId, side) => {
-      updateGameState((state) => {
-        state.claimedRoutes = {
-          ...state.claimedRoutes,
-          [`${routeId}_${side}`]: myClaimerKey,
-        };
-        const route = ROUTES.find((r) => r.id === routeId);
-        const len = route ? route.trainCount : 0;
-        state.moveLog = [
-          ...(state.moveLog || []),
-          {
-            player: playerName,
-            text: `claimed a route (${len} train${len !== 1 ? "s" : ""})`,
-          },
-        ];
-        return state;
-      });
-    },
-    [updateGameState, myClaimerKey, playerName],
-  );
-
-  const spendCards = useCallback(
-    (deduction) => {
-      updateGameState((state) => {
-        const pi = myPlayerIndex;
-        const player = state.players[pi];
-        const newHand = { ...player.hand };
-        const spent = [];
-        for (const [k, v] of Object.entries(deduction || {})) {
-          newHand[k] = Math.max(0, (newHand[k] ?? 0) - v);
-          for (let i = 0; i < v; i++)
-            spent.push(k === "rainbow" ? { rainbow: true } : { color: k });
-        }
-        state.players[pi] = { ...player, hand: newHand };
-        state.discardPile = [...state.discardPile, ...spent];
-        return state;
-      });
-    },
-    [updateGameState, myPlayerIndex],
-  );
-
-  const addPoints = useCallback(
-    (points) => {
-      updateGameState((state) => {
-        const pi = myPlayerIndex;
-        state.players[pi] = {
-          ...state.players[pi],
-          score: state.players[pi].score + points,
-        };
-        return state;
-      });
-    },
-    [updateGameState, myPlayerIndex],
-  );
-
-  const incrementPlaced = useCallback(
-    (n) => {
-      const tilesToAdd = Number(n) || 0;
-      updateGameState((state) => {
-        const pi = myPlayerIndex;
-        const player = state.players[pi];
-        const nextPlaced = player.placedTiles + tilesToAdd;
-        state.players[pi] = { ...player, placedTiles: nextPlaced };
-        if (nextPlaced >= 15 && !state.lastRoundTriggered) {
-          state.lastRoundTriggered = true;
-          const numPlayers = state.players.length;
-          state.finalTurnsLeft = numPlayers - 1;
-        }
-        return state;
-      });
-    },
-    [updateGameState, myPlayerIndex],
-  );
-
-  const canPlaceMore = useCallback(
-    (needed) => {
-      if (!gameState) return false;
-      const n = Number(needed) || 0;
-      const player = gameState.players[myPlayerIndex];
-      return (player?.placedTiles || 0) + n <= 17;
-    },
-    [gameState, myPlayerIndex],
-  );
 
   if (!gameState || !gameState.gameStarted) {
     return (
@@ -619,6 +283,9 @@ export function OnlineGame({ roomId, playerName, isHost }) {
       </WaitingForPlayers>
     );
   }
+
+  const myClaimerKey =
+    myPlayerIndex === 0 ? "player" : `player${myPlayerIndex + 1}`;
 
   const myPlayer = gameState.players[myPlayerIndex];
   const isInitialTicketSelection =
@@ -641,28 +308,7 @@ export function OnlineGame({ roomId, playerName, isHost }) {
 
   return (
     <div className="flex min-h-screen flex-col items-center bg-zinc-100 dark:bg-zinc-900 font-sans p-8">
-      {gameState.gameOver && (
-        <GameOverModal
-          score={myPlayer?.score ?? 0}
-          aiScores={[]}
-          extraManualScores={gameState.players
-            .filter((_, i) => i !== myPlayerIndex)
-            .map((p) => p.score)}
-          playerNumberBonuses={myPlayer?.numberBonuses ?? []}
-          aiNumberBonuses={[]}
-          extraManualNumberBonuses={gameState.players
-            .filter((_, i) => i !== myPlayerIndex)
-            .map((p) => p.numberBonuses ?? [])}
-          playerTicketResults={myPlayer?.ticketResults ?? []}
-          aiTicketResults={[]}
-          extraManualTicketResults={gameState.players
-            .filter((_, i) => i !== myPlayerIndex)
-            .map((p) => p.ticketResults ?? [])}
-          extraManualTickets={gameState.players
-            .filter((_, i) => i !== myPlayerIndex)
-            .map((p) => p.tickets)}
-        />
-      )}
+      {gameState.gameOver && <GameOverModal players={gameState.players} />}
 
       {disconnectedPlayers.length > 0 && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-600 text-white rounded-2xl px-6 py-3 shadow-xl flex items-center gap-3">
@@ -766,11 +412,6 @@ export function OnlineGame({ roomId, playerName, isHost }) {
           myPlayerIndex === 0 ? "Player 1" : `Player ${myPlayerIndex + 1}`
         }
         selectTickets={(i) => selectTickets(i, true)}
-        spendCards={spendCards}
-        addPoints={addPoints}
-        canPlaceMore={canPlaceMore}
-        incrementPlaced={incrementPlaced}
-        incrementTurn={incrementTurn}
         cardsDrawn={gameState?.cardsDrawn ?? 0}
         isAiTurn={!isMyTurn || anyoneSelectingInitial}
         numAIs={0}
