@@ -85,9 +85,7 @@ export function LobbyScreen({ onJoin, onPlayLocal }) {
               placeholder="Room code"
               value={roomCode}
               onChange={(e) => setRoomCode(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") joinRoom();
-              }}
+              onKeyDown={(e) => e.key === "Enter" && joinRoom()}
             />
             <button
               onClick={joinRoom}

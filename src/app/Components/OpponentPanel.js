@@ -12,6 +12,11 @@ export function OpponentPanel({
   gameOver,
 }) {
   const active = (isActiveTurn || isThinking) && !gameOver;
+  const subLabelCls = active
+    ? "text-blue-200"
+    : "text-zinc-500 dark:text-zinc-400";
+  const totalCards = Object.values(hand || {}).reduce((a, b) => a + b, 0);
+
   return (
     <div className="flex gap-4 mb-4">
       <div
@@ -21,40 +26,19 @@ export function OpponentPanel({
             : "bg-zinc-200 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-100"
         }`}
       >
-        <div className="flex flex-col items-center">
-          <span
-            className={`text-[10px] uppercase font-bold ${active ? "text-blue-200" : "text-zinc-500 dark:text-zinc-400"}`}
-          >
-            {label} Points
-          </span>
-          <span className="text-2xl font-black">{score ?? 0}</span>
-        </div>
-        <div className="flex flex-col items-center">
-          <span
-            className={`text-[10px] uppercase font-bold ${active ? "text-blue-200" : "text-zinc-500 dark:text-zinc-400"}`}
-          >
-            {label} Trains
-          </span>
-          <span className="text-2xl font-black">{17 - (placedTiles || 0)}</span>
-        </div>
-        <div className="flex flex-col items-center">
-          <span
-            className={`text-[10px] uppercase font-bold ${active ? "text-blue-200" : "text-zinc-500 dark:text-zinc-400"}`}
-          >
-            {label} Cards
-          </span>
-          <span className="text-2xl font-black">
-            {Object.values(hand || {}).reduce((a, b) => a + b, 0)}
-          </span>
-        </div>
-        <div className="flex flex-col items-center">
-          <span
-            className={`text-[10px] uppercase font-bold ${active ? "text-blue-200" : "text-zinc-500 dark:text-zinc-400"}`}
-          >
-            {label} Tickets
-          </span>
-          <span className="text-2xl font-black">{(tickets || []).length}</span>
-        </div>
+        {[
+          { stat: score ?? 0, suffix: "Points" },
+          { stat: 17 - (placedTiles || 0), suffix: "Trains" },
+          { stat: totalCards, suffix: "Cards" },
+          { stat: (tickets || []).length, suffix: "Tickets" },
+        ].map(({ stat, suffix }) => (
+          <div key={suffix} className="flex flex-col items-center">
+            <span className={`text-[10px] uppercase font-bold ${subLabelCls}`}>
+              {label} {suffix}
+            </span>
+            <span className="text-2xl font-black">{stat}</span>
+          </div>
+        ))}
         <div className="flex flex-col items-center justify-center">
           {isThinking && !gameOver ? (
             <span className="text-xs font-bold text-blue-200 animate-pulse">

@@ -1,7 +1,17 @@
 ﻿"use client";
 
-import React from "react";
 import { CITIES } from "../data/gameData";
+
+const getCityData = (name, manualPos, width, height) => {
+  const city = CITIES.find((c) => c.name === name);
+  const pos = manualPos || city || { x: 0, y: 0 };
+  return {
+    pos: { x: (pos.x / 1200) * width, y: (pos.y / 666.6) * height },
+    number: city?.number,
+  };
+};
+
+const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
 
 export function TicketCard({
   cityA,
@@ -15,23 +25,13 @@ export function TicketCard({
   blocked = false,
   completed = false,
 }) {
-  const getCityData = (name, manualPos) => {
-    const city = CITIES.find((c) => c.name === name);
-    const pos = manualPos || city || { x: 0, y: 0 };
-    return {
-      pos: { x: (pos.x / 1200) * width, y: (pos.y / 666.6) * height },
-      number: city?.number,
-    };
-  };
+  const dataA = getCityData(cityA, cityAPos, width, height);
+  const dataB = getCityData(cityB, cityBPos, width, height);
 
-  const dataA = getCityData(cityA, cityAPos),
-    dataB = getCityData(cityB, cityBPos);
-  const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
-
-  const ax = clamp(dataA.pos.x, 8, width - 8),
-    ay = clamp(dataA.pos.y, 8, height - 8);
-  const bx = clamp(dataB.pos.x, 8, width - 8),
-    by = clamp(dataB.pos.y, 8, height - 8);
+  const ax = clamp(dataA.pos.x, 8, width - 8);
+  const ay = clamp(dataA.pos.y, 8, height - 8);
+  const bx = clamp(dataB.pos.x, 8, width - 8);
+  const by = clamp(dataB.pos.y, 8, height - 8);
 
   return (
     <div
@@ -114,11 +114,7 @@ export function TicketCard({
 
           <div
             className="absolute text-[12px] font-semibold flex flex-col"
-            style={{
-              top: 85,
-              left: 5,
-              color: "#ef4444",
-            }}
+            style={{ top: 85, left: 5, color: "#ef4444" }}
           >
             <span>{cityA}</span>
           </div>
@@ -138,5 +134,3 @@ export function TicketCard({
     </div>
   );
 }
-
-export default TicketCard;

@@ -1,5 +1,7 @@
 ﻿"use client";
 
+import React from "react";
+
 export function GameOverModal({ players = [] }) {
   if (!players.length) return null;
 
@@ -21,14 +23,11 @@ export function GameOverModal({ players = [] }) {
 
         <div className="flex gap-8 mb-12 flex-wrap justify-center">
           {players.map((p, i) => (
-            <>
+            <React.Fragment key={i}>
               {i > 0 && (
-                <div
-                  key={`sep-${i}`}
-                  className="w-px h-16 bg-zinc-200 dark:bg-zinc-700 self-center"
-                />
+                <div className="w-px h-16 bg-zinc-200 dark:bg-zinc-700 self-center" />
               )}
-              <div key={`score-${i}`} className="flex flex-col">
+              <div className="flex flex-col">
                 <span className="text-sm text-zinc-400 uppercase font-bold mb-1">
                   {p.name}
                 </span>
@@ -36,7 +35,7 @@ export function GameOverModal({ players = [] }) {
                   {p.score}
                 </span>
               </div>
-            </>
+            </React.Fragment>
           ))}
         </div>
 

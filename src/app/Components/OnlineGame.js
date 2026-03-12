@@ -8,17 +8,11 @@ import {
   useSelf,
   shallow,
 } from "@/liveblocks.config";
-import { shuffle } from "../utils/shuffle";
-import { TICKETS, INITIAL_TRAIN_CARDS_DECK, ROUTES } from "../data/gameData";
 import {
   EMPTY_HAND,
-  checkThreeRainbows,
-  refillDisplay,
   isConnectedViaEdges,
   getClaimedEdges,
-  groupCitiesByNumber,
   isTicketBlocked,
-  isSetFullyConnected,
   getInitialState,
 } from "../utils/gameUtils";
 import { GameHeader } from "./GameHeader";
@@ -28,10 +22,6 @@ import { TicketSelection } from "./TicketSelection";
 import { OpponentPanel } from "./OpponentPanel";
 import { MoveLog } from "./MoveLog";
 import { useTTRGame, applyEndGameScoring } from "../hooks/useTTRGame";
-
-const buildInitialState = (numPlayers) => {
-  return getInitialState(numPlayers);
-};
 
 function WaitingForPlayers({ children, roomId }) {
   const others = useOthers((others) => others, shallow);
@@ -208,7 +198,7 @@ export function OnlineGame({ roomId, playerName, isHost }) {
   }, [disconnectedPlayersKey, gameState?.gameOver]);
 
   const initGame = useMutation(({ storage }, numPlayers, slots) => {
-    const state = buildInitialState(numPlayers);
+    const state = getInitialState(numPlayers);
     storage.set("gameState", state);
     storage.set("playerSlots", slots);
   }, []);
@@ -394,17 +384,7 @@ export function OnlineGame({ roomId, playerName, isHost }) {
       )}
 
       <PlayerBoard
-        playerHand={
-          myPlayer?.hand ?? {
-            orange: 0,
-            blue: 0,
-            black: 0,
-            red: 0,
-            yellow: 0,
-            green: 0,
-            rainbow: 0,
-          }
-        }
+        playerHand={myPlayer?.hand ?? EMPTY_HAND}
         playerTickets={myTicketsDisplay}
         placedTiles={myPlayer?.placedTiles ?? 0}
         drawingTickets={null}

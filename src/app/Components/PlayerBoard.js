@@ -3,7 +3,7 @@
 import { TrainTile, TrainTileCont, PlayerHandContext } from "./TrainTile";
 import { City } from "./City";
 import { TrainCards } from "./Cards";
-import TicketCard from "./TicketCard";
+import { TicketCard } from "./TicketCard";
 import { TicketSelection } from "./TicketSelection";
 import { ROUTES, CITIES } from "../data/gameData";
 
@@ -98,7 +98,7 @@ export function PlayerBoard({
           </div>
         )}
 
-        <div className="flex flex-row mt-10" style={{ gap: "2.5rem" }}>
+        <div className="flex flex-row mt-10 gap-10">
           <div className="gap-2 flex flex-col justify-center max-w-150">
             <p className="text-sm text-zinc-500 dark:text-zinc-400 font-bold mb-2">
               Train Cards

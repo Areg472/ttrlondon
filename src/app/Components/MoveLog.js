@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 
 export function MoveLog({ entries = [] }) {
   const [open, setOpen] = useState(false);
   const listRef = useRef(null);
+  const reversedEntries = useMemo(() => [...entries].reverse(), [entries]);
 
   useEffect(() => {
     if (open && listRef.current) {
@@ -42,7 +43,7 @@ export function MoveLog({ entries = [] }) {
                 No moves yet
               </div>
             ) : (
-              [...entries].reverse().map((entry, i) => (
+              reversedEntries.map((entry, i) => (
                 <div
                   key={entries.length - 1 - i}
                   className="flex items-start gap-2 text-xs py-1 border-b border-zinc-50 dark:border-zinc-700 last:border-0"

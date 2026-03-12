@@ -2,6 +2,16 @@
 
 import React, { useContext, useState } from "react";
 
+export const CLAIMER_COLORS = {
+  ai0: "#E6E6FA",
+  ai1: "#9D6192",
+  ai2: "#D6A77B",
+  player: "#008080",
+  player2: "#E05C2A",
+  player3: "#7B3FC4",
+  player4: "#C4A020",
+};
+
 export const PlayerHandContext = React.createContext({
   red: 0,
   blue: 0,
@@ -260,22 +270,7 @@ export function TrainTileCont({
 
     return React.cloneElement(first, {
       trainTrigger: currentTrigger,
-      trainColor:
-        claimType === "ai0"
-          ? "#E6E6FA"
-          : claimType === "ai1"
-            ? "#9D6192"
-            : claimType === "ai2"
-              ? "#D6A77B"
-              : claimType === "player"
-                ? "#008080"
-                : claimType === "player2"
-                  ? "#E05C2A"
-                  : claimType === "player3"
-                    ? "#7B3FC4"
-                    : claimType === "player4"
-                      ? "#C4A020"
-                      : "#008080",
+      trainColor: CLAIMER_COLORS[claimType] ?? CLAIMER_COLORS.player,
       childPosition,
       index,
       disabled,
