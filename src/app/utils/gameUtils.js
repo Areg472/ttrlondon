@@ -256,6 +256,8 @@ export const getInitialState = (numPlayers, playerNames = []) => {
     finalTurnsLeft: -1,
     gameStarted: true,
     moveLog: [],
+    playerTimers: Array.from({ length: numPlayers }, () => 150),
+    lastTimerUpdate: Date.now(),
   };
 };
 

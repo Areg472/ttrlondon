@@ -29,6 +29,17 @@ export function useTTRGame(gameState, updateState, myPlayerIndex, playerName) {
         }
         if (state.finalTurnsLeft > 0) state.finalTurnsLeft -= 1;
       }
+
+      // Add 15s bonus to the player who just completed their turn (capped at 2:30)
+      if (state.playerTimers) {
+        const current = state.currentPlayerIndex;
+        state.playerTimers[current] = Math.min(
+          150,
+          state.playerTimers[current] + 15,
+        );
+        state.lastTimerUpdate = Date.now();
+      }
+
       const next = (state.currentPlayerIndex + 1) % numPlayers;
       state.currentPlayerIndex = next;
       if (next === 0) state.turn += 1;

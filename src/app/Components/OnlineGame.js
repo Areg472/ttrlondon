@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   useStorage,
   useMutation,
@@ -236,6 +236,61 @@ export function OnlineGame({ roomId, playerName, isHost }) {
     gameState.currentPlayerIndex === myPlayerIndex &&
     !gameState.gameOver;
 
+  // ─── Turn Timer ──────────────────────────────────────────────────────────
+  // Derive base timers from server state (no setState-in-effect needed)
+  const serverTimers = useMemo(
+    () => (gameState?.playerTimers ? [...gameState.playerTimers] : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [gameState?.lastTimerUpdate],
+  );
+  const [localTimers, setLocalTimers] = useState(null);
+
+  // Reset local timers whenever the server snapshot changes
+  const prevServerTimersRef = useRef(serverTimers);
+  if (serverTimers !== prevServerTimersRef.current) {
+    prevServerTimersRef.current = serverTimers;
+    if (serverTimers) setLocalTimers(serverTimers);
+  }
+
+  // Tick down the active player's clock every second
+  useEffect(() => {
+    if (!gameState?.gameStarted || gameState?.gameOver || !localTimers) return;
+    // Don't tick during initial ticket selection
+    const anyoneSelectingInitialTickets = gameState.players.some(
+      (p) => p.drawingTickets && p.tickets.length === 0,
+    );
+    if (anyoneSelectingInitialTickets) return;
+
+    const interval = setInterval(() => {
+      setLocalTimers((prev) => {
+        if (!prev) return prev;
+        const next = [...prev];
+        const active = gameState.currentPlayerIndex;
+        next[active] = Math.max(0, next[active] - 1);
+
+        // If timer hit 0, end the game (only host writes to shared state)
+        if (next[active] <= 0 && isHost) {
+          updateGameState((state) => {
+            state.playerTimers = next;
+            state.gameOver = true;
+            state.timerExpiredPlayer = active;
+            return state;
+          });
+        }
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [
+    gameState?.gameStarted,
+    gameState?.gameOver,
+    gameState?.currentPlayerIndex,
+    gameState?.players,
+    localTimers && localTimers.length,
+    isHost,
+    updateGameState,
+  ]);
+
   const prevIsMyTurnRef = useRef(false);
   useEffect(() => {
     if (isMyTurn && !prevIsMyTurnRef.current) {
@@ -329,6 +384,12 @@ export function OnlineGame({ roomId, playerName, isHost }) {
         currentExtraManualIndex={-1}
         lastRoundTriggered={gameState.lastRoundTriggered}
         gameOver={gameState.gameOver}
+        playerTimers={localTimers}
+        currentPlayerIndex={gameState.currentPlayerIndex}
+        playerNames={gameState.players.map(
+          (p, i) => p.name || `Player ${i + 1}`,
+        )}
+        timerExpiredPlayer={gameState.timerExpiredPlayer}
       />
 
       <div className="flex flex-row flex-wrap gap-4 mb-4">

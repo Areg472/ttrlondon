@@ -1,5 +1,11 @@
 ﻿"use client";
 
+function formatTime(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
 export function GameHeader({
   score,
   turn,
@@ -10,6 +16,10 @@ export function GameHeader({
   currentExtraManualIndex,
   lastRoundTriggered,
   gameOver,
+  playerTimers,
+  currentPlayerIndex,
+  playerNames,
+  timerExpiredPlayer,
 }) {
   return (
     <header className="mb-8 text-center flex items-center justify-center gap-12">
@@ -56,6 +66,58 @@ export function GameHeader({
           )}
         </div>
       </div>
+
+      {playerTimers && (
+        <div className="z-50 select-none flex gap-3">
+          {playerTimers.map((time, i) => {
+            const isActive = currentPlayerIndex === i && !gameOver;
+            const isLow = time <= 30;
+            const isCritical = time <= 10;
+            return (
+              <div
+                key={i}
+                className={`rounded-2xl px-4 py-3 shadow-lg flex flex-col items-center border-2 transition-all ${
+                  isActive
+                    ? isCritical
+                      ? "bg-red-50 dark:bg-red-950 border-red-500 scale-105"
+                      : isLow
+                        ? "bg-amber-50 dark:bg-amber-950 border-amber-500 scale-105"
+                        : "bg-white dark:bg-zinc-800 border-green-500 scale-105"
+                    : "bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 opacity-60"
+                }`}
+              >
+                <span className="text-[10px] uppercase font-black tracking-[0.2em] text-zinc-400 mb-0.5">
+                  {playerNames?.[i] || `P${i + 1}`}
+                </span>
+                <span
+                  className={`text-2xl font-black tabular-nums leading-none ${
+                    isCritical && isActive
+                      ? "text-red-500 animate-pulse"
+                      : isLow && isActive
+                        ? "text-amber-500"
+                        : "text-zinc-800 dark:text-zinc-100"
+                  }`}
+                >
+                  {formatTime(time)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {gameOver && timerExpiredPlayer != null && (
+        <div className="z-50 select-none">
+          <div className="bg-red-100 dark:bg-red-900 border-2 border-red-500 rounded-2xl px-6 py-3 shadow-lg flex flex-col items-center">
+            <span className="text-sm font-black text-red-600 dark:text-red-300">
+              ⏱️{" "}
+              {playerNames?.[timerExpiredPlayer] ||
+                `Player ${timerExpiredPlayer + 1}`}
+              &apos;s time ran out!
+            </span>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
